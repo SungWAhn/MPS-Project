@@ -258,5 +258,5 @@ finalmerged <- merge(x = setDT(mergedd3), y = setDT(labelsdatd), by = 'app_id', 
 
 ## Exploratory Analysis
 ```{r}
-plot()
+plot(finalmerge)
 ```
