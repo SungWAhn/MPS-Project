@@ -2,7 +2,9 @@
 title: "MPS Project"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
 date: "February 13, 2019"
-output: pdf_document
+output: 
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ## Setup
@@ -13,9 +15,6 @@ library(data.table)
 library(tidyverse)
 library(bit64)
 library(Rmpfr)
-library(xtable)
-options(xtable.floating = FALSE)
-options(xtable.timestamp = "")
 ```
 ```{r}
 # Plain setwd doesn't work for some reason
