@@ -6,14 +6,16 @@ output: pdf_document
 ---
 
 ## Setup
-```{r}
+```{r warning=FALSE, message=FALSE}
 library(knitr)
 library(readr)
 library(data.table)
 library(tidyverse)
 library(bit64)
 library(Rmpfr)
-library(profvis)
+library(xtable)
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
 ```
 ```{r}
 # Plain setwd doesn't work for some reason
@@ -46,11 +48,8 @@ dim(app_events[which(duplicated(app_events$event_id) == T),])
 # Any duplicate app_id? YES
 dim(app_events[which(duplicated(app_events$app_id) == T),])
 dim(app_events[which(duplicated(app_events$app_idd) == T),])
-head(sort(app_events[which(duplicated(app_events$app_id) == T)]$app_id), n = 30)
 # An example of the duplicates
 app_events[which(app_events$event_id == 568),]
-app_events[which(app_eventsc$app_id == '-9221156934682287334'),]
-app_events[which(app_events$app_id == as.integer64.character('-9221156934682287334')),]
 ```
 For every event_id, there are multiple app_ids associated. App_ids are not unique either. This dataset has no unique index.
 
@@ -136,19 +135,6 @@ To summarize:
 
 
 ## Merging
-[link](http://www.datasciencemadesimple.com/join-in-r-merge-in-r/)
-```{r}
-# Toy Example
-x <- data.table(index = c(1,2,2,3,4), letters = c('a', 'b', 'b', 'c','d'))
-y <- data.table(index = c(1,2,3,3), word = c('ant', 'bird', 'cat', 'cat'))
-
-# Inner Merge on index column
-innerjoin <- merge(x,y, by = 'index')
-outerjoin <- merge(x,y, by = 'index', all.x = T)
-innerjoin
-outerjoin
-```
-
 This merge throws a warning because device_id is not unique in phonebrand
 ```{r}
 # merged <- merge(x = appevents.events, y = phonebrand, by = 'device_id', all.x
@@ -160,26 +146,50 @@ Delete the duplicate rows in Phonebrand
 uniquephones <- unique(phonebrand)
 ```
 
-```{r}
-# Merge sequentially, starting with datasets that have unique indexes
-# Convert uniquephones to a data.table to prevent any memory issues
-profvis({
-merged1 <- merge(x = setDT(uniquephones), y = gender_age, by = 'device_id', all.y = T)
-merged2 <- merge(x = merged1, y = events, by = 'device_id')
-train <- merge(x = merged2, y = app_events, by = 'event_id', all.x = T)
-
-# Merge the app_label with label_category
-labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
+Merge sequentially, starting with datasets that have unique indexes. First merge phonebrand with gender_age on device_id.
+```{r results='asis'}
+kable(gender_age[1:6, ], caption = 'Gender_Age')
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
+
+```{r}
+# Convert uniquephones to a data.table to prevent any memory issues
+merged1 <- merge(x = setDT(uniquephones), y = gender_age, by = 'device_id', all.y = T)
+kable(merged1[1:6,], caption = 'First Merge')
+```
+
+```{r}
+merged2 <- merge(x = merged1, y = events, by = 'device_id')
+kable(merged2[1:6,], caption = 'Second Merge')
+```
+```{r}
+train <- merge(x = merged2, y = app_events, by = 'event_id', all.x = T)
+kable(train[1:6,], caption = "Last Merge")
+```
+
+There are still 2 datasets left pertaining to app descriptions
+```{r}
+# Merge the app_label with label_category
+kable(app_labels[1:6,], caption = 'App_Labels')
+kable(labelcategory[1:6], caption = 'Label_Category')
+```
+```{r}
+labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
+kable(labelsdat[1:10,], caption = 'App Labels')
+```
+
 ```{r}
 # Maybe don't need to do this final merge?
 # Convert the data.frames to a data.table to prevent any memory issues
-finalmerge <- merge(x = setDT(merged3), y = setDT(labelsdat), by = 'app_id', allow.cartesian = T, all.x = T)
-})
+#finalmerge <- merge(x = setDT(merged3), y = setDT(labelsdat), by = 'app_id', allow.cartesian = T, all.x = T)
 ```
 
+## Exploratory Analysis
 
-## Problems with Long ID Columns
+
+
+
+## Problems that have been fixed
 The datasets were read in with the id columns set as int64 type, but noticed using double or character type instead  doesn't accurately store the id numbers. To confirm this, made three copies of the same datasets to compare the effect of converting int64 to double or character types
 
 ```{r}
@@ -200,11 +210,6 @@ phonebrandc <- read_csv('phone_brand_device_model.csv', locale = locale(encoding
 ```
 
 ```{r}
-uniquephonesc <- unique(phonebrandc)
-uniquephonesd <- unique(phonebrandd)
-```
-
-```{r}
 # Convert columns with int64 types to double
 eventsd$device_id <- as.double(eventsd$device_id)
 app_eventsd$app_id <- as.double(app_eventsd$app_id)
@@ -217,39 +222,32 @@ phonebrandd$device_id <- as.double(phonebrandd$device_id)
 phonebrandc$device_id <- as.character(phonebrandc$device_id)
 ```
 
+```{r}
+uniquephonesc <- unique(phonebrandc)
+uniquephonesd <- unique(phonebrandd)
+```
+
 Merge for datasets that have id columns converted to character
 ```{r}
 # Merge sequentially, starting with datasets that have unique indexes
 # Convert uniquephones to a data.table to prevent any memory issues
-profvis({
 mergedc1 <- merge(x = setDT(uniquephonesc), y = gender_agec, by = 'device_id', all.y = T)
 mergedc2 <- merge(x = mergedc1, y = eventsc, by = 'device_id')
 mergedc3 <- merge(x = mergedc2, y = app_eventsc, by = 'event_id', all.x = T)
 
 # Merge the app_label with label_category
 labelsdatc <- merge(x = app_labelsc, y = labelcategory, by = 'label_id', all.x = T)
-
-# Maybe don't need to do this final merge?
-# Convert the data.frames to a data.table to prevent any memory issues
-finalmergec <- merge(x = setDT(mergedc3), y = setDT(labelsdatc), by = 'app_id', allow.cartesian = T, all.x = T)
-})
 ```
 Merge for datasets that have id columns converted to double
 ```{r}
 # Merge sequentially, starting with datasets that have unique indexes
 # Convert uniquephones to a data.table to prevent any memory issues
-profvis({
 mergedd1 <- merge(x = setDT(uniquephonesd), y = gender_aged, by = 'device_id', all.y = T)
 mergedd2 <- merge(x = mergedd1, y = eventsd, by = 'device_id')
 mergedd3 <- merge(x = mergedd2, y = app_eventsd, by = 'event_id', all.x = T)
 
 # Merge the app_label with label_category
 labelsdatd <- merge(x = app_labelsd, y = labelcategory, by = 'label_id', all.x = T)
-
-# Maybe don't need to do this final merge?
-# Convert the data.frames to a data.table to prevent any memory issues
-finalmerged <- merge(x = setDT(mergedd3), y = setDT(labelsdatd), by = 'app_id', allow.cartesian = T, all.x = T)
-})
 ```
 
 ```{r}
@@ -258,8 +256,3 @@ dim(mergedc3)
 dim(mergedd3)
 ```
 Characters and Int64 formats match, but double does not. This is most likely because long id numbers can lose precision when converted to double type, unlike character and int64 types. Just stick with int64.
-
-## Exploratory Analysis
-```{r}
-plot(finalmerge)
-```
