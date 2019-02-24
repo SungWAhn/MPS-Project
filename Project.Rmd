@@ -1,0 +1,262 @@
+---
+title: "MPS Project"
+author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
+date: "February 13, 2019"
+output: pdf_document
+---
+
+## Setup
+```{r}
+library(knitr)
+library(readr)
+library(data.table)
+library(tidyverse)
+library(bit64)
+library(Rmpfr)
+library(profvis)
+```
+```{r}
+# Plain setwd doesn't work for some reason
+opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+```
+
+There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
+```{r}
+# Plain read.csv can take a while. fread from data.table library is much more efficient
+events <- fread(file = 'events.csv', header = T)
+app_events <- fread('app_events.csv', header = T)
+app_labels <- fread('app_labels.csv', header = T)
+labelcategory <- fread('label_categories.csv', header = T)
+gender_age <- fread('gender_age_train.csv', header = T)
+
+# Use read_csv here because of the Chinese characters issue
+phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
+```
+
+Before merging the datasets, look at the properties of the datasets. It is especially hard to plan the merges without knowing which columns are unique and which have duplicates.
+
+### app_events datset
+```{r}
+str(app_events)
+head(app_events, n = 30)
+
+# Any duplicate event_id? YES
+dim(app_events[which(duplicated(app_events$event_id) == T),])
+# Any duplicate app_id? YES
+dim(app_events[which(duplicated(app_events$app_id) == T),])
+dim(app_events[which(duplicated(app_events$app_idd) == T),])
+head(sort(app_events[which(duplicated(app_events$app_id) == T)]$app_id), n = 30)
+# An example of the duplicates
+app_events[which(app_events$event_id == 568),]
+app_events[which(app_eventsc$app_id == '-9221156934682287334'),]
+app_events[which(app_events$app_id == as.integer64.character('-9221156934682287334')),]
+```
+For every event_id, there are multiple app_ids associated. App_ids are not unique either. This dataset has no unique index.
+
+### events dataset
+```{r}
+str(events)
+head(events, n = 30)
+
+# Any duplicate event_id? NO
+dim(events[which(duplicated(events$event_id) == T),])
+# Any duplicated device_id? YES
+dim(events[which(duplicated(events$device_id) == T),])
+dim(events[which(duplicated(events$device_idd) == T),])
+
+# An of the example duplicates
+events[which(events$device_id==events[[81, 2]]),]
+```
+This dataset has a list of unique events, but events could share the same device_ids. The event_id is unique index.
+
+### app_labels
+```{r}
+str(app_labels)
+head(app_labels, n = 30)
+
+# Any duplicate app_id? YES
+dim(app_labels[which(duplicated(app_labels$app_id) == T),])
+dim(app_labels[which(duplicated(app_labels$app_idd) == T),])
+# Any duplicated label_id? YES
+dim(app_labels[which(duplicated(app_labels$label_id) == T),])
+# An of the example duplicates
+app_labels[which(app_labels$app_id==app_labels[[4, 1]]),]
+app_labels[which(app_labels$label_id==app_labels[[5, 2]]),]
+```
+Any app_id can have multiple app_labels, and any app_label can have multiple app_ids. I.e. apps can be categorized under many labels, and the same labels are used multiple times for different apps. No unique index.
+
+### label_category
+```{r}
+str(labelcategory)
+head(labelcategory, n = 30)
+
+# Any duplicate label_id? NO
+dim(labelcategory[which(duplicated(labelcategory$label_id) == T),])
+# Any duplicated category? YES
+dim(labelcategory[which(duplicated(labelcategory$category) == T),])
+
+# An of the example duplicates
+labelcategory[which(labelcategory$category==labelcategory[[106, 2]]),]
+labelcategory[which(labelcategory$category==labelcategory[[187, 2]]),]
+```
+Label_id is unique. The text descriptions are not unique, so label_ids can have the same text descriptions.
+
+### Phonebrand dataset
+```{r}
+str(phonebrand)
+head(phonebrand, n = 30)
+
+# Any duplicates in device_id? YES
+dim(phonebrand[which(duplicated(phonebrand$device_id) == T),])
+
+# Example duplicates
+phonebrand[which(phonebrand$device_id==phonebrand[[22626,1]]),]
+phonebrand[which(phonebrand$device_id==phonebrand[[34351,1]]),]
+```
+Looking at the examples, looks like the duplicates are the exact same individuals. Safe to delete?
+
+### Gender_age dataset
+```{r}
+str(gender_age)
+head(gender_age, n = 30)
+
+# Any duplicate device_id? NO
+dim(gender_age[which(duplicated(gender_age$device_id) == T),])
+```
+Gender_age has a unique device_id column. Every individual has a gneder/age class.
+
+To summarize:
+
+- App_events: no unique index
+- events: **unique** event_id and nonunique device_id
+- app_labels: nonunique app_id and nonunique label_id
+- phonebrand: nonunique device_id, but these duplicates have exactly same rows
+- gender_age: **unique** device_id
+
+
+## Merging
+[link](http://www.datasciencemadesimple.com/join-in-r-merge-in-r/)
+```{r}
+# Toy Example
+x <- data.table(index = c(1,2,2,3,4), letters = c('a', 'b', 'b', 'c','d'))
+y <- data.table(index = c(1,2,3,3), word = c('ant', 'bird', 'cat', 'cat'))
+
+# Inner Merge on index column
+innerjoin <- merge(x,y, by = 'index')
+outerjoin <- merge(x,y, by = 'index', all.x = T)
+innerjoin
+outerjoin
+```
+
+This merge throws a warning because device_id is not unique in phonebrand
+```{r}
+# merged <- merge(x = appevents.events, y = phonebrand, by = 'device_id', all.x
+# = TRUE)
+```
+
+Delete the duplicate rows in Phonebrand
+```{r}
+uniquephones <- unique(phonebrand)
+```
+
+```{r}
+# Merge sequentially, starting with datasets that have unique indexes
+# Convert uniquephones to a data.table to prevent any memory issues
+profvis({
+merged1 <- merge(x = setDT(uniquephones), y = gender_age, by = 'device_id', all.y = T)
+merged2 <- merge(x = merged1, y = events, by = 'device_id')
+train <- merge(x = merged2, y = app_events, by = 'event_id', all.x = T)
+
+# Merge the app_label with label_category
+labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
+```
+```{r}
+# Maybe don't need to do this final merge?
+# Convert the data.frames to a data.table to prevent any memory issues
+finalmerge <- merge(x = setDT(merged3), y = setDT(labelsdat), by = 'app_id', allow.cartesian = T, all.x = T)
+})
+```
+
+
+## Problems with Long ID Columns
+The datasets were read in with the id columns set as int64 type, but noticed using double or character type instead  doesn't accurately store the id numbers. To confirm this, made three copies of the same datasets to compare the effect of converting int64 to double or character types
+
+```{r}
+eventsd <- fread(file = 'events.csv', header = T)
+app_eventsd <- fread('app_events.csv', header = T)
+app_labelsd <- fread('app_labels.csv', header = T)
+labelcategoryd <- fread('label_categories.csv', header = T)
+gender_aged <- fread('gender_age_train.csv', header = T)
+phonebrandd <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
+```
+```{r}
+eventsc <- fread(file = 'events.csv', header = T)
+app_eventsc <- fread('app_events.csv', header = T)
+app_labelsc <- fread('app_labels.csv', header = T)
+labelcategoryc <- fread('label_categories.csv', header = T)
+gender_agec <- fread('gender_age_train.csv', header = T)
+phonebrandc <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
+```
+
+```{r}
+uniquephonesc <- unique(phonebrandc)
+uniquephonesd <- unique(phonebrandd)
+```
+s
+```{r}
+# Convert columns with int64 types to double
+eventsd$device_id <- as.double(eventsd$device_id)
+app_eventsd$app_id <- as.double(app_eventsd$app_id)
+gender_aged$device_id <- as.double(gender_aged$device_id)
+app_labelsd$app_id <- as.double(app_labelsd$app_id)
+phonebrandd$device_id <- as.double(phonebrandd$device_id)
+```
+```{r}
+# Convert columns with int64 types to character
+eventsc$device_id <- as.character(eventsc$device_id)
+app_eventsc$app_id <- as.character(app_eventsc$app_id)
+gender_agec$device_id <- as.character(gender_agec$device_id)
+app_labelsc$app_id <- as.character(app_labelsc$app_id)
+phonebrandc$device_id <- as.character(phonebrandc$device_id)
+```
+
+Merge for datasets that have id columns converted to character
+```{r}
+# Merge sequentially, starting with datasets that have unique indexes
+# Convert uniquephones to a data.table to prevent any memory issues
+profvis({
+mergedc1 <- merge(x = setDT(uniquephonesc), y = gender_agec, by = 'device_id', all.y = T)
+mergedc2 <- merge(x = mergedc1, y = eventsc, by = 'device_id', all.x = T)
+mergedc3 <- merge(x = mergedc2, y = app_eventsc, by = 'event_id', all.x = T)
+
+# Merge the app_label with label_category
+labelsdatc <- merge(x = app_labelsc, y = labelcategory, by = 'label_id', all.x = T)
+
+# Maybe don't need to do this final merge?
+# Convert the data.frames to a data.table to prevent any memory issues
+finalmergec <- merge(x = setDT(mergedc3), y = setDT(labelsdatc), by = 'app_id', allow.cartesian = T, all.x = T)
+})
+```
+Merge for datasets that have id columns converted to double
+```{r}
+# Merge sequentially, starting with datasets that have unique indexes
+# Convert uniquephones to a data.table to prevent any memory issues
+profvis({
+mergedd1 <- merge(x = setDT(uniquephonesd), y = gender_aged, by = 'device_id', all.y = T)
+mergedd2 <- merge(x = mergedd1, y = eventsd, by = 'device_id', all.x = T)
+mergedd3 <- merge(x = mergedd2, y = app_eventsd, by = 'event_id', all.x = T)
+
+# Merge the app_label with label_category
+labelsdatd <- merge(x = app_labelsd, y = labelcategory, by = 'label_id', all.x = T)
+
+# Maybe don't need to do this final merge?
+# Convert the data.frames to a data.table to prevent any memory issues
+finalmerged <- merge(x = setDT(mergedd3), y = setDT(labelsdatd), by = 'app_id', allow.cartesian = T, all.x = T)
+})
+```
+
+## Exploratory Analysis
+```{r}
+plot()
+```
