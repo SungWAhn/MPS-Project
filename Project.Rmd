@@ -191,11 +191,11 @@ gender_aged <- fread('gender_age_train.csv', header = T)
 phonebrandd <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
 ```
 ```{r}
-eventsc <- fread(file = 'events.csv', header = T)
-app_eventsc <- fread('app_events.csv', header = T)
-app_labelsc <- fread('app_labels.csv', header = T)
-labelcategoryc <- fread('label_categories.csv', header = T)
-gender_agec <- fread('gender_age_train.csv', header = T)
+eventsc <- fread(file = 'events.csv', header = T, integer64 = 'character')
+app_eventsc <- fread('app_events.csv', header = T, integer64 = 'character')
+app_labelsc <- fread('app_labels.csv', header = T, integer64 = 'character')
+labelcategoryc <- fread('label_categories.csv', header = T, integer64 = 'character')
+gender_agec <- fread('gender_age_train.csv', header = T, integer64 = 'character')
 phonebrandc <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
 ```
 
@@ -203,7 +203,7 @@ phonebrandc <- read_csv('phone_brand_device_model.csv', locale = locale(encoding
 uniquephonesc <- unique(phonebrandc)
 uniquephonesd <- unique(phonebrandd)
 ```
-s
+
 ```{r}
 # Convert columns with int64 types to double
 eventsd$device_id <- as.double(eventsd$device_id)
@@ -214,10 +214,6 @@ phonebrandd$device_id <- as.double(phonebrandd$device_id)
 ```
 ```{r}
 # Convert columns with int64 types to character
-eventsc$device_id <- as.character(eventsc$device_id)
-app_eventsc$app_id <- as.character(app_eventsc$app_id)
-gender_agec$device_id <- as.character(gender_agec$device_id)
-app_labelsc$app_id <- as.character(app_labelsc$app_id)
 phonebrandc$device_id <- as.character(phonebrandc$device_id)
 ```
 
@@ -227,7 +223,7 @@ Merge for datasets that have id columns converted to character
 # Convert uniquephones to a data.table to prevent any memory issues
 profvis({
 mergedc1 <- merge(x = setDT(uniquephonesc), y = gender_agec, by = 'device_id', all.y = T)
-mergedc2 <- merge(x = mergedc1, y = eventsc, by = 'device_id', all.x = T)
+mergedc2 <- merge(x = mergedc1, y = eventsc, by = 'device_id')
 mergedc3 <- merge(x = mergedc2, y = app_eventsc, by = 'event_id', all.x = T)
 
 # Merge the app_label with label_category
@@ -244,7 +240,7 @@ Merge for datasets that have id columns converted to double
 # Convert uniquephones to a data.table to prevent any memory issues
 profvis({
 mergedd1 <- merge(x = setDT(uniquephonesd), y = gender_aged, by = 'device_id', all.y = T)
-mergedd2 <- merge(x = mergedd1, y = eventsd, by = 'device_id', all.x = T)
+mergedd2 <- merge(x = mergedd1, y = eventsd, by = 'device_id')
 mergedd3 <- merge(x = mergedd2, y = app_eventsd, by = 'event_id', all.x = T)
 
 # Merge the app_label with label_category
@@ -255,6 +251,13 @@ labelsdatd <- merge(x = app_labelsd, y = labelcategory, by = 'label_id', all.x =
 finalmerged <- merge(x = setDT(mergedd3), y = setDT(labelsdatd), by = 'app_id', allow.cartesian = T, all.x = T)
 })
 ```
+
+```{r}
+dim(train)
+dim(mergedc3)
+dim(mergedd3)
+```
+Characters and Int64 formats match, but double does not. This is most likely because long id numbers can lose precision when converted to double type, unlike character and int64 types. Just stick with int64.
 
 ## Exploratory Analysis
 ```{r}
