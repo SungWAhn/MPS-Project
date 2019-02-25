@@ -3,8 +3,7 @@ title: "MPS Project"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
 date: "February 13, 2019"
 output: 
-  pdf_document:
-    latex_engine: xelatex
+  html_document
 ---
 
 ## Setup
@@ -15,6 +14,12 @@ library(data.table)
 library(tidyverse)
 library(bit64)
 library(Rmpfr)
+library(kableExtra)
+options(kableExtra.latex.load_packages = FALSE)
+knit_hooks$set(document = function(x) {
+  sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
+})
+
 ```
 ```{r}
 # Plain setwd doesn't work for some reason
@@ -39,14 +44,12 @@ Before merging the datasets, look at the properties of the datasets. It is espec
 
 ### app_events datset
 ```{r}
-str(app_events)
 head(app_events, n = 30)
 
 # Any duplicate event_id? YES
 dim(app_events[which(duplicated(app_events$event_id) == T),])
 # Any duplicate app_id? YES
 dim(app_events[which(duplicated(app_events$app_id) == T),])
-dim(app_events[which(duplicated(app_events$app_idd) == T),])
 # An example of the duplicates
 app_events[which(app_events$event_id == 568),]
 ```
@@ -54,14 +57,12 @@ For every event_id, there are multiple app_ids associated. App_ids are not uniqu
 
 ### events dataset
 ```{r}
-str(events)
 head(events, n = 30)
 
 # Any duplicate event_id? NO
 dim(events[which(duplicated(events$event_id) == T),])
 # Any duplicated device_id? YES
 dim(events[which(duplicated(events$device_id) == T),])
-dim(events[which(duplicated(events$device_idd) == T),])
 
 # An of the example duplicates
 events[which(events$device_id==events[[81, 2]]),]
@@ -70,12 +71,10 @@ This dataset has a list of unique events, but events could share the same device
 
 ### app_labels
 ```{r}
-str(app_labels)
 head(app_labels, n = 30)
 
 # Any duplicate app_id? YES
 dim(app_labels[which(duplicated(app_labels$app_id) == T),])
-dim(app_labels[which(duplicated(app_labels$app_idd) == T),])
 # Any duplicated label_id? YES
 dim(app_labels[which(duplicated(app_labels$label_id) == T),])
 # An of the example duplicates
@@ -145,36 +144,84 @@ Delete the duplicate rows in Phonebrand
 uniquephones <- unique(phonebrand)
 ```
 
-Merge sequentially, starting with datasets that have unique indexes. First merge phonebrand with gender_age on device_id.
+Merge sequentially, starting with datasets that have unique indexes. 
+First merge phonebrand with gender_age on device_id.
 ```{r results='asis'}
-kable(gender_age[1:6, ], caption = 'Gender_Age')
+kable(gender_age[1:6, ], caption = 'Gender_Age') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
 kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
-
 ```{r}
 # Convert uniquephones to a data.table to prevent any memory issues
 merged1 <- merge(x = setDT(uniquephones), y = gender_age, by = 'device_id', all.y = T)
-kable(merged1[1:6,], caption = 'First Merge')
+```
+The result
+```{r results='asis'}
+kable(merged1[1:6,], caption = 'First Merge') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
 
+
+Second Merge: Merge the previous dataset with Events
+```{r results='asis'}
+kable(events[1:6,], caption = 'Events') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
+```
 ```{r}
 merged2 <- merge(x = merged1, y = events, by = 'device_id')
-kable(merged2[1:6,], caption = 'Second Merge')
+```
+The result
+```{r results='asis'}
+kable(merged2[1:6,], caption = 'Second Merge') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
+```
+
+
+The third merge. Merge the previous dataset with App_Events
+```{r results='asis'}
+kable(app_events[1:6,], caption = 'App_Events') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
 ```{r}
 train <- merge(x = merged2, y = app_events, by = 'event_id', all.x = T)
-kable(train[1:6,], caption = "Last Merge")
+```
+The result
+```{r results='asis'}
+kable(train[1:6,], caption = "Third Merge") %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
 
 There are still 2 datasets left pertaining to app descriptions
-```{r}
+```{r results='asis'}
 # Merge the app_label with label_category
-kable(app_labels[1:6,], caption = 'App_Labels')
-kable(labelcategory[1:6], caption = 'Label_Category')
+kable(app_labels[1:6,], caption = 'App_Labels') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
+kable(labelcategory[1:6], caption = 'Label_Category') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
 ```{r}
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
-kable(labelsdat[1:10,], caption = 'App Labels')
+```
+```{r results='asis'}
+kable(labelsdat[1:10,], caption = 'App Labels') %>%
+  kable_styling(bootstrap_options = c("striped", "responsive"), full_width = F) %>%
+  column_spec(1, width = "15em")
+kable(phonebrand[1:6,], caption = 'Phonebrand')
 ```
 
 ```{r}
@@ -184,74 +231,3 @@ kable(labelsdat[1:10,], caption = 'App Labels')
 ```
 
 ## Exploratory Analysis
-
-
-
-
-## Problems that have been fixed
-The datasets were read in with the id columns set as int64 type, but noticed using double or character type instead  doesn't accurately store the id numbers. To confirm this, made three copies of the same datasets to compare the effect of converting int64 to double or character types
-
-```{r}
-eventsd <- fread(file = 'events.csv', header = T)
-app_eventsd <- fread('app_events.csv', header = T)
-app_labelsd <- fread('app_labels.csv', header = T)
-labelcategoryd <- fread('label_categories.csv', header = T)
-gender_aged <- fread('gender_age_train.csv', header = T)
-phonebrandd <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
-```
-```{r}
-eventsc <- fread(file = 'events.csv', header = T, integer64 = 'character')
-app_eventsc <- fread('app_events.csv', header = T, integer64 = 'character')
-app_labelsc <- fread('app_labels.csv', header = T, integer64 = 'character')
-labelcategoryc <- fread('label_categories.csv', header = T, integer64 = 'character')
-gender_agec <- fread('gender_age_train.csv', header = T, integer64 = 'character')
-phonebrandc <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
-```
-
-```{r}
-# Convert columns with int64 types to double
-eventsd$device_id <- as.double(eventsd$device_id)
-app_eventsd$app_id <- as.double(app_eventsd$app_id)
-gender_aged$device_id <- as.double(gender_aged$device_id)
-app_labelsd$app_id <- as.double(app_labelsd$app_id)
-phonebrandd$device_id <- as.double(phonebrandd$device_id)
-```
-```{r}
-# Convert columns with int64 types to character
-phonebrandc$device_id <- as.character(phonebrandc$device_id)
-```
-
-```{r}
-uniquephonesc <- unique(phonebrandc)
-uniquephonesd <- unique(phonebrandd)
-```
-
-Merge for datasets that have id columns converted to character
-```{r}
-# Merge sequentially, starting with datasets that have unique indexes
-# Convert uniquephones to a data.table to prevent any memory issues
-mergedc1 <- merge(x = setDT(uniquephonesc), y = gender_agec, by = 'device_id', all.y = T)
-mergedc2 <- merge(x = mergedc1, y = eventsc, by = 'device_id')
-mergedc3 <- merge(x = mergedc2, y = app_eventsc, by = 'event_id', all.x = T)
-
-# Merge the app_label with label_category
-labelsdatc <- merge(x = app_labelsc, y = labelcategory, by = 'label_id', all.x = T)
-```
-Merge for datasets that have id columns converted to double
-```{r}
-# Merge sequentially, starting with datasets that have unique indexes
-# Convert uniquephones to a data.table to prevent any memory issues
-mergedd1 <- merge(x = setDT(uniquephonesd), y = gender_aged, by = 'device_id', all.y = T)
-mergedd2 <- merge(x = mergedd1, y = eventsd, by = 'device_id')
-mergedd3 <- merge(x = mergedd2, y = app_eventsd, by = 'event_id', all.x = T)
-
-# Merge the app_label with label_category
-labelsdatd <- merge(x = app_labelsd, y = labelcategory, by = 'label_id', all.x = T)
-```
-
-```{r}
-dim(train)
-dim(mergedc3)
-dim(mergedd3)
-```
-Characters and Int64 formats match, but double does not. This is most likely because long id numbers can lose precision when converted to double type, unlike character and int64 types. Just stick with int64.
