@@ -15,6 +15,7 @@ body{ /* Normal  */
 
 </style>
 
+
 ## Setup
 ```{r warning=FALSE, message=FALSE}
 library(knitr)
@@ -240,3 +241,76 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 ```
 
 ## Exploratory Analysis
+
+```{r}
+inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
+
+```
+58% of the location data is invalid.
+
+```{r}
+ggplot(data = train, aes(x = factor(group))) +
+  geom_bar(stat='count', width=0.7, fill="steelblue") +
+  theme_minimal()
+```
+
+```{r}
+
+m39 <- dim(train[which(train$group == 'M39+')])[1]
+m32.38<- dim(train[which(train$group == 'M32-38')])[1]
+m29.31<- dim(train[which(train$group == 'M29-31')])[1]
+m27.28 <- dim(train[which(train$group == 'M27-28')])[1]
+m23.26 <- dim(train[which(train$group == 'M23-26')])[1]
+m22 <- dim(train[which(train$group == 'M22-')])[1]
+f43 <- dim(train[which(train$group == 'F43+')])[1]
+f33.42 <- dim(train[which(train$group == 'F33-42')])[1]
+f29.32 <- dim(train[which(train$group == 'F29-32')])[1]
+f27.28 <- dim(train[which(train$group == 'F27-28')])[1]
+f24.26 <- dim(train[which(train$group == 'F24-26')])[1]
+f23 <- dim(train[which(train$group == 'F23-')])[1]
+
+groupcts <- data.frame('category' = c('M39+', 'M32-38', 'M29-31', 'M27-28', 'M23-26', 'M22-', 'F43+', 'F33-42', 'F29-32', 'F27-28', 'F24-26', 'F23-'), 'counts' = c(m39, m32.38, m29.31, m27.28, m23.26, m22, f43, f33.42, f29.32, f27.28, f24.26, f23))
+```
+
+```{r results='asis', echo=FALSE}
+kable(groupcts, caption = 'Event Count by Group') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+
+```{r}
+malecount <- sum(groupcts[1:6,2])
+femalecount <- sum(groupcts[7:12,2])
+percentage <- (malecount-femalecount)/malecount
+percentage
+```
+
+There are 63% more males than females using their phones
+
+```{r}
+unique(train[which(train$group == 'M39+')]$phone_brand)
+```
+```{r}
+m39.lenova<-dim(train[which(train$group=='M39+'& train$phone_brand=='??????')])[1]
+phone_count=function(group) {
+  lenova<-dim(train[which(train$group==group& train$phone_brand=='lenova')])[1]
+  samsung<-dim(train[which(train$group==group & train$phone_brand=='samsung')])[1]
+  ctyon<-dim(train[which(train$group==group & train$phone_brand=='ctyon')])[1]
+  coolpad<-dim(train[which(train$group==group & train$phone_brand=='coolpad')])[1]
+  vivo<-dim(train[which(train$group==group & train$phone_brand=='vivo')])[1]
+  huawei<-dim(train[which(train$group==group & train$phone_brand=='huawei')])[1]
+  gionee<-dim(train[which(train$group==group & train$phone_brand=='gionee')])[1]
+  le<-dim(train[which(train$group==group & train$phone_brand=='le')])[1]
+  meizu<-dim(train[which(train$group==group & train$phone_brand=='meizu')])[1]
+  mi<-dim(train[which(train$group==group & train$phone_brand=='mi')])[1]
+  meitu<-dim(train[which(train$group==group & train$phone_brand=='meitu')])[1]
+  smartisan<-dim(train[which(train$group==group & train$phone_brand=='smartisan')])[1]
+  yitong<-dim(train[which(train$group==group & train$phone_brand=='yitong')])[1]
+  zte<-dim(train[which(train$group==group & train$phone_brand=='zte')])[1]
+  koobee<-dim(train[which(train$group==group & train$phone_brand=='koobee')])[1]
+  doov<-dim(train[which(train$group==group & train$phone_brand=='doov')])[1]
+  nubia<-dim(train[which(train$group==group & train$phone_brand=='nubia')])[1]
+  na<-dim(train[which(train$group==group & is.na(train$phone_brand))])[1]
+  group_phone_count<-data.frame('phone_brand'=c('lenova','samsung', 'ctyon', 'coolpad', 'vivo', 'huawei', 'gionee', 'le','meizu','smartisan','yitong', 'zte', 'koobee', 'doov','nubia', 'na'), 'count'=c(lenova, samsung, ctyon, coolpad, vivo, huawei, gionee, le, meizu, smartisan, yitong, zte, koobee, doov, nubia, na))
+  return(group_phone_count)
+}
+```
