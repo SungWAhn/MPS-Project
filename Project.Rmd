@@ -15,7 +15,6 @@ body{ /* Normal  */
 
 </style>
 
-
 ## Setup
 ```{r warning=FALSE, message=FALSE}
 library(knitr)
