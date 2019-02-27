@@ -24,6 +24,7 @@ library(tidyverse)
 library(bit64)
 library(Rmpfr)
 library(kableExtra)
+library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
 knit_hooks$set(document = function(x) {
   sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
@@ -49,7 +50,25 @@ gender_age <- fread('gender_age_train.csv', header = T)
 phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
 ```
 
-Before merging the datasets, look at the properties of the datasets. It is especially hard to plan the merges without knowing which columns are unique and which have duplicates.
+## Data Cleaning
+### Fix Chinese characters
+```{r}
+# Read in the translation dataset
+chin_eng <- phone_brand_translate <- read_excel("phone_brand translate.xlsx", sheet = "Sheet1")
+
+# Replace each brand name with an english one with for loop
+phone <- phonebrand$phone_brand
+for (i in 1:100) {
+phone[phone==chin_eng$`original phone brand`[i]] = chin_eng$`new phone brand`[i]
+}
+
+phonebrand$phone_brand <- phone
+```
+
+
+
+
+Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
 
 ### app_events datset
 ```{r}
@@ -241,11 +260,13 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 
 ## Exploratory Analysis
 
+Missing values in longitude/latitude
 ```{r}
 inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
 
 ```
 58% of the location data is invalid.
+
 
 ```{r}
 ggplot(data = train, aes(x = factor(group))) +
@@ -253,8 +274,9 @@ ggplot(data = train, aes(x = factor(group))) +
   theme_minimal()
 ```
 
-```{r}
 
+```{r}
+# Count number of events each group category has
 m39 <- dim(train[which(train$group == 'M39+')])[1]
 m32.38<- dim(train[which(train$group == 'M32-38')])[1]
 m29.31<- dim(train[which(train$group == 'M29-31')])[1]
@@ -282,13 +304,13 @@ femalecount <- sum(groupcts[7:12,2])
 percentage <- (malecount-femalecount)/malecount
 percentage
 ```
-
 There are 63% more males than females using their phones
 
 ```{r}
 unique(train[which(train$group == 'M39+')]$phone_brand)
 ```
 ```{r}
+# Function to count the number of different brands each group category uses
 m39.lenova<-dim(train[which(train$group=='M39+'& train$phone_brand=='??????')])[1]
 phone_count=function(group) {
   lenova<-dim(train[which(train$group==group& train$phone_brand=='lenova')])[1]
@@ -313,3 +335,4 @@ phone_count=function(group) {
   return(group_phone_count)
 }
 ```
+
