@@ -51,20 +51,24 @@ phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding 
 ```
 
 ## Data Cleaning
-### Fix Chinese characters
+### Translate Chinese characters
 ```{r}
 # Read in the translation dataset
-chin_eng <- phone_brand_translate <- read_excel("phone_brand translate.xlsx", sheet = "Sheet1")
+chin_eng <- read_excel("phone_brand translate.xlsx", sheet = "Sheet1")
 
 # Replace each brand name with an english one with for loop
 phone <- phonebrand$phone_brand
-for (i in 1:100) {
+for (i in 1:121) {
 phone[phone==chin_eng$`original phone brand`[i]] = chin_eng$`new phone brand`[i]
 }
 
 phonebrand$phone_brand <- phone
-```
 
+# Check to see if there are any Chinese characters left
+leftovers <- phonebrand[which(grepl('^[A-Za-z]\\D+$', phonebrand$phone_brand) == FALSE), ]
+leftovers <- leftovers[which(grepl('100+', leftovers$phone_brand)==FALSE),]
+leftovers
+```
 
 
 
