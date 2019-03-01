@@ -308,22 +308,30 @@ groupcts <- data.frame('category' = c('M39+', 'M32-38', 'M29-31', 'M27-28', 'M23
 # Simpler with dplyr
 groupcts2 <- train %>%
   group_by(group) %>%
-  summarise(n())
+  summarise(count = n()) %>%
+  mutate(proportion = 100*count/sum(count))
 ```
 
 ```{r results='asis', echo=FALSE}
-kable(groupcts, caption = 'Event Count by Group') %>%
+groupcts2 %>%
+  mutate(
+    count = cell_spec(count, color = ifelse(count == max(count[1:6]) | count == max(count[7:12]), "blue", "black")),
+    proportion = cell_spec(proportion, color = ifelse(proportion == max(proportion[1:6]) | proportion == max(proportion[7:12]), "blue", "black"))
+  ) %>%
+kable(escape = F, caption = 'Event Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
+Males seem to be more active than females, but this is probably due to the fact that there are more males than females:
 ```{r}
 malecount <- sum(groupcts[1:6,2])
 femalecount <- sum(groupcts[7:12,2])
 percentage <- (malecount-femalecount)/malecount
 percentage
 ```
-There are 63% more males than females using their phones
+There are 63% more males than females in the dataset
 
+In the female category, ages 33-42 are most active, while for males, ages 32-38 are most active.
 ```{r}
 unique(train[which(train$group == 'M39+')]$phone_brand)
 ```
