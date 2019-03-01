@@ -26,6 +26,7 @@ library(bit64)
 library(Rmpfr)
 library(tidyverse)
 library(ggmosaic)
+library(ggmap)
 library(kableExtra)
 library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
@@ -359,7 +360,7 @@ groupcts2 %>%
     count = cell_spec(count, color = ifelse(count == max(count[1:6]) | count == max(count[7:12]), "blue", "black")),
     proportion = cell_spec(proportion, color = ifelse(proportion == max(proportion[1:6]) | proportion == max(proportion[7:12]), "blue", "black"))
   ) %>%
-kable(escape = F, caption = 'Event Count by Group') %>%
+kable(escape = F, caption = 'App Usage Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
@@ -388,11 +389,11 @@ groupgendercts <- train %>%
 
 # data.table way
 groupgendercts <- train[,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
-                            age > 24 & age <= 26 ~ "24-26",
-                            age > 27 & age <= 28 ~ "27-28",
-                            age > 29 & age <= 32 ~ "29-32",
-                            age > 33 & age <= 42 ~ "33-42",
-                            age > 43 ~ "43+"))]
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+"))]
 
 ggplot(data = groupgendercts) +
   geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
@@ -445,7 +446,7 @@ group_phone_count <- train %>%
 ```
 
 ```{r results='asis', echo=FALSE}
-kable(phone_count, caption = 'Phone Devices By Group') %>%
+kable(phone_count, caption = 'Phone Devices Count') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 
 kable(group_phone_count, caption = 'Phone Devices By Group') %>%
@@ -474,6 +475,18 @@ ggplot(data=phonebrandmf, aes(x=phone_brand, fill=mf)) +
     geom_bar(stat="count", position=position_dodge())
 ```
 
+Map of the location data
 ```{r}
+locations <- train %>%
+  select(longitude, latitude) %>%
+  filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
+box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
 
+map <- get_map(location = box, maptype = 'terrain', source = 'google')
+
+p <- ggmap(map)
+p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
 ```
+
+
+Most events occurred in the China area
