@@ -32,8 +32,8 @@ knit_hooks$set(document = function(x) {
 ```
 ```{r}
 # Plain setwd doesn't work for some reason
-opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
-setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+# opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+# setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
 ```
 
 There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
