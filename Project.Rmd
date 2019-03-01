@@ -16,14 +16,16 @@ body{ /* Normal  */
 
 </style>
 
+
 ## Setup
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(knitr)
 library(readr)
 library(data.table)
-library(tidyverse)
 library(bit64)
 library(Rmpfr)
+library(tidyverse)
+library(ggmosaic)
 library(kableExtra)
 library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
@@ -53,13 +55,12 @@ phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding 
 
 ## Data Cleaning
 
-
 ### Convert device_id to int64
 ```{r}
 # phonebrand device_id is set as double:
 typeof(phonebrand$device_id)
 
-# Convert to int64 since double loses precision
+# Convert to int64 since double is less efficient
 phonebrand$device_id <- as.integer64.double(phonebrand$device_id)
 ```
 
@@ -228,6 +229,7 @@ kable(train[1:6,], caption = "Third Merge") %>%
 
 ### Summary of the merges
 ```{r}
+# Observation count
 merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
 ```
 ```{r results='asis', echo=FALSE}
@@ -237,6 +239,7 @@ kable(merge.dims, caption = "Change in Length of Table") %>%
 ```
 
 ```{r}
+# Device id count
 merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
 ```
 ```{r results='asis', echo=FALSE}
@@ -272,7 +275,7 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 
 ## Exploratory Analysis
 
-Missing values in longitude/latitude
+### Missing Values
 ```{r}
 inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
 
@@ -286,9 +289,9 @@ ggplot(data = train, aes(x = factor(group))) +
   theme_minimal()
 ```
 
-
+Relationship of App Usage Count with Gender & Age
 ```{r}
-# Count number of events each group category has
+# Count number of app uses each group category has
 m39 <- dim(train[which(train$group == 'M39+')])[1]
 m32.38<- dim(train[which(train$group == 'M32-38')])[1]
 m29.31<- dim(train[which(train$group == 'M29-31')])[1]
@@ -332,6 +335,33 @@ percentage
 There are 63% more males than females in the dataset
 
 In the female category, ages 33-42 are most active, while for males, ages 32-38 are most active.
+
+A clearer picture of App Usage
+```{r}
+groupgendercts <- train %>%
+  select(gender, age) %>%
+  mutate(agecat = case_when(age <= 23 ~ "23-",
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+"))
+
+# data.table way
+groupgendercts <- train[,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
+                            age > 24 & age <= 26 ~ "24-26",
+                            age > 27 & age <= 28 ~ "27-28",
+                            age > 29 & age <= 32 ~ "29-32",
+                            age > 33 & age <= 42 ~ "33-42",
+                            age > 43 ~ "43+"))]
+
+ggplot(data = groupgendercts) +
+  geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
+  labs(x = "Age", y = "Gender", main = "App Usage by Age and Gender")
+```
+
+
+Relationship of Phonebrand with Gender & Age
 ```{r}
 unique(train[which(train$group == 'M39+')]$phone_brand)
 ```
@@ -403,4 +433,8 @@ phonebrandmf <- train %>%
 
 ggplot(data=phonebrandmf, aes(x=phone_brand, fill=mf)) +
     geom_bar(stat="count", position=position_dodge())
+```
+
+```{r}
+
 ```
