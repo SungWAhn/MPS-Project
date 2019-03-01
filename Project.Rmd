@@ -1,9 +1,10 @@
 ---
 title: "MPS Project"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
-date: "February 13, 2019"
+date: "March 4, 2019"
 output: 
   html_document:
+    highlight: pygments
     theme: cosmo
 ---
 
@@ -14,30 +15,34 @@ body{ /* Normal  */
   }
 
 </style>
-##test for test
+
+
 ## Setup
-```{r warning=FALSE, message=FALSE}
+```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(knitr)
 library(readr)
 library(data.table)
-library(tidyverse)
 library(bit64)
 library(Rmpfr)
+library(tidyverse)
+library(ggmosaic)
+library(ggmap)
 library(kableExtra)
+library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
 knit_hooks$set(document = function(x) {
   sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
 })
 
 ```
-```{r}
+```{r echo=FALSE}
 # Plain setwd doesn't work for some reason
 # opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
 # setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
 ```
 
 There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
-```{r}
+```{r message=FALSE}
 # Plain read.csv can take a while. fread from data.table library is much more efficient
 events <- fread(file = 'events.csv', header = T)
 app_events <- fread('app_events.csv', header = T)
@@ -49,7 +54,39 @@ gender_age <- fread('gender_age_train.csv', header = T)
 phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
 ```
 
-Before merging the datasets, look at the properties of the datasets. It is especially hard to plan the merges without knowing which columns are unique and which have duplicates.
+## Data Cleaning
+
+### Convert device_id to int64
+```{r}
+# phonebrand device_id is set as double:
+typeof(phonebrand$device_id)
+
+# Convert to int64 since double is less efficient
+phonebrand$device_id <- as.integer64.double(phonebrand$device_id)
+```
+
+### Translate Chinese characters
+```{r}
+# Read in the translation dataset
+chin_eng <- read_excel("phone_brand translate.xlsx", sheet = "Sheet1")
+
+# Replace each brand name with an english one with for loop
+phone <- phonebrand$phone_brand
+for (i in 1:121) {
+phone[phone==chin_eng$`original phone brand`[i]] = chin_eng$`new phone brand`[i]
+}
+
+phonebrand$phone_brand <- phone
+
+# Check to see if there are any Chinese characters left
+leftovers <- phonebrand[which(grepl('^[A-Za-z]\\D+$', phonebrand$phone_brand) == FALSE), ]
+leftovers <- leftovers[which(grepl('100+', leftovers$phone_brand)==FALSE),]
+leftovers
+```
+
+
+## Merging
+Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
 
 ### app_events datset
 ```{r}
@@ -126,7 +163,6 @@ To summarize:
 - gender_age: **unique** device_id
 
 
-## Merging
 This merge throws a warning because device_id is not unique in phonebrand
 ```{r}
 # merged <- merge(x = appevents.events, y = phonebrand, by = 'device_id', all.x
@@ -194,7 +230,8 @@ kable(train[1:6,], caption = "Third Merge") %>%
 
 ### Summary of the merges
 ```{r}
-merge.dims <- data.frame("Table" = c("Gender_Age", "Merge1", "Merge2", "Train"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
+# Observation count
+merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
 ```
 ```{r results='asis', echo=FALSE}
 kable(merge.dims, caption = "Change in Length of Table") %>%
@@ -203,7 +240,8 @@ kable(merge.dims, caption = "Change in Length of Table") %>%
 ```
 
 ```{r}
-merge.idcount <- data.frame("Table" = c("Gender_Age", "Merge1", "Merge2", "Train"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
+# Device id count
+merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
 ```
 ```{r results='asis', echo=FALSE}
 kable(merge.idcount, caption = "Change in Device ID Count") %>%
@@ -215,20 +253,17 @@ There are still 2 datasets left pertaining to app descriptions
 ```{r results='asis', echo=FALSE}
 # Merge the app_label with label_category
 kable(app_labels[1:6,], caption = 'App_Labels') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(1, width = "15em")
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 
 kable(labelcategory[1:6], caption = 'Label_Category') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(1, width = "15em")
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 ```{r}
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
 ```
 ```{r results='asis', echo=FALSE}
 kable(labelsdat[1:10,], caption = 'App Labels') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(1, width = "15em")
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
 
@@ -240,3 +275,218 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 ```
 
 ## Exploratory Analysis
+
+### Missing Values
+
+Location Data
+```{r}
+inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
+
+```
+58% of the location data is invalid.
+
+Phone Brand and Model Data
+```{r}
+dim(train[is.na(train$phone_brand)])
+dim(train[is.na(train$phone_brand)])[1]/dim(train)[1]*100
+
+dim(train[is.na(train$device_model)])
+dim(train[is.na(train$device_model)])[1]/dim(train)[1]*100
+```
+Almost 100% of phonebrands and phone models are missing
+
+Is_Installed and Is_Active Data
+```{r}
+dim(train[is.na(train$is_installed)])
+dim(train[is.na(train$is_installed)])[1]/dim(train)[1]*100
+
+dim(train[is.na(train$is_active)])
+dim(train[is.na(train$is_active)])[1]/dim(train)[1]*100
+```
+
+```{r}
+dim(train[is.na(train$app_id)])
+dim(train[is.na(train$app_id)])[1]/dim(train)[1]*100
+
+dim(train[is.na(train$app_id) | app_id == 0])
+dim(train[is.na(train$app_id)])[1]/dim(train)[1]*100
+```
+
+No missing values in these predictors
+```{r}
+dim(train[is.na(train$timestamp)])
+dim(train[is.na(train$event_id)])
+dim(train[is.na(train$device_id)])
+dim(train[is.na(train$gender)])
+dim(train[is.na(train$age)])
+dim(train[is.na(train$group)])
+```
+
+```{r}
+ggplot(data = train, aes(x = factor(group))) +
+  geom_bar(stat='count', width=0.7, fill="steelblue") +
+  theme_minimal()
+```
+
+Relationship of App Usage Count with Gender & Age
+```{r}
+# Count number of app uses each group category has
+m39 <- dim(train[which(train$group == 'M39+')])[1]
+m32.38<- dim(train[which(train$group == 'M32-38')])[1]
+m29.31<- dim(train[which(train$group == 'M29-31')])[1]
+m27.28 <- dim(train[which(train$group == 'M27-28')])[1]
+m23.26 <- dim(train[which(train$group == 'M23-26')])[1]
+m22 <- dim(train[which(train$group == 'M22-')])[1]
+f43 <- dim(train[which(train$group == 'F43+')])[1]
+f33.42 <- dim(train[which(train$group == 'F33-42')])[1]
+f29.32 <- dim(train[which(train$group == 'F29-32')])[1]
+f27.28 <- dim(train[which(train$group == 'F27-28')])[1]
+f24.26 <- dim(train[which(train$group == 'F24-26')])[1]
+f23 <- dim(train[which(train$group == 'F23-')])[1]
+
+groupcts <- data.frame('category' = c('M39+', 'M32-38', 'M29-31', 'M27-28', 'M23-26', 'M22-', 'F43+', 'F33-42', 'F29-32', 'F27-28', 'F24-26', 'F23-'), 'counts' = c(m39, m32.38, m29.31, m27.28, m23.26, m22, f43, f33.42, f29.32, f27.28, f24.26, f23))
+
+
+# Simpler with dplyr
+groupcts2 <- train %>%
+  group_by(group) %>%
+  summarise(count = n()) %>%
+  mutate(proportion = 100*count/sum(count))
+```
+
+```{r results='asis', echo=FALSE}
+groupcts2 %>%
+  mutate(
+    count = cell_spec(count, color = ifelse(count == max(count[1:6]) | count == max(count[7:12]), "blue", "black")),
+    proportion = cell_spec(proportion, color = ifelse(proportion == max(proportion[1:6]) | proportion == max(proportion[7:12]), "blue", "black"))
+  ) %>%
+kable(escape = F, caption = 'App Usage Count by Group') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+
+Males seem to be more active than females, but this is probably due to the fact that there are more males than females:
+```{r}
+malecount <- sum(groupcts[1:6,2])
+femalecount <- sum(groupcts[7:12,2])
+percentage <- (malecount-femalecount)/malecount
+percentage
+```
+There are 63% more males than females in the dataset
+
+In the female category, ages 33-42 are most active, while for males, ages 32-38 are most active.
+
+A clearer picture of App Usage
+```{r}
+# Dplyr way
+groupgendercts <- train %>%
+  select(gender, age) %>%
+  mutate(agecat = case_when(age <= 23 ~ "23-",
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+"))
+
+# data.table way
+groupgendercts <- train[,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+"))]
+
+ggplot(data = groupgendercts) +
+  geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
+  labs(x = "Age", y = "Gender", main = "App Usage by Age and Gender")
+```
+
+
+Relationship of Phonebrand with Gender & Age
+```{r}
+unique(train[which(train$group == 'M39+')]$phone_brand)
+```
+```{r}
+# Function to count the number of different brands each group category uses
+m39.lenova<-dim(train[which(train$group=='M39+'& train$phone_brand=='??????')])[1]
+phone_count=function(group) {
+  lenova<-dim(train[which(train$group==group& train$phone_brand=='lenova')])[1]
+  samsung<-dim(train[which(train$group==group & train$phone_brand=='samsung')])[1]
+  ctyon<-dim(train[which(train$group==group & train$phone_brand=='ctyon')])[1]
+  coolpad<-dim(train[which(train$group==group & train$phone_brand=='coolpad')])[1]
+  vivo<-dim(train[which(train$group==group & train$phone_brand=='vivo')])[1]
+  huawei<-dim(train[which(train$group==group & train$phone_brand=='huawei')])[1]
+  gionee<-dim(train[which(train$group==group & train$phone_brand=='gionee')])[1]
+  le<-dim(train[which(train$group==group & train$phone_brand=='le')])[1]
+  meizu<-dim(train[which(train$group==group & train$phone_brand=='meizu')])[1]
+  mi<-dim(train[which(train$group==group & train$phone_brand=='mi')])[1]
+  meitu<-dim(train[which(train$group==group & train$phone_brand=='meitu')])[1]
+  smartisan<-dim(train[which(train$group==group & train$phone_brand=='smartisan')])[1]
+  yitong<-dim(train[which(train$group==group & train$phone_brand=='yitong')])[1]
+  zte<-dim(train[which(train$group==group & train$phone_brand=='zte')])[1]
+  koobee<-dim(train[which(train$group==group & train$phone_brand=='koobee')])[1]
+  doov<-dim(train[which(train$group==group & train$phone_brand=='doov')])[1]
+  nubia<-dim(train[which(train$group==group & train$phone_brand=='nubia')])[1]
+  na<-dim(train[which(train$group==group & is.na(train$phone_brand))])[1]
+  group_phone_count<-data.frame('phone_brand'=c('lenova','samsung', 'ctyon', 'coolpad', 'vivo', 'huawei', 'gionee', 'le','meizu','smartisan','yitong', 'zte', 'koobee', 'doov','nubia', 'na'), 'count'=c(lenova, samsung, ctyon, coolpad, vivo, huawei, gionee, le, meizu, smartisan, yitong, zte, koobee, doov, nubia, na))
+  return(group_phone_count)
+}
+
+# Simpler with dplyr
+# Overall phone brand count
+phone_count <- train %>%
+  group_by(phone_brand) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Phone brand count by group
+group_phone_count <- train %>%
+  group_by(group, phone_brand) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count), .by_group = TRUE)
+```
+
+```{r results='asis', echo=FALSE}
+kable(phone_count, caption = 'Phone Devices Count') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+
+kable(group_phone_count, caption = 'Phone Devices By Group') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  group_rows("F23-", 1, 6) %>%
+  group_rows("F24-26", 7, 11) %>%
+  group_rows("F27-28", 12, 15) %>%
+  group_rows("F29-32", 16, 21) %>%
+  group_rows("F33-42", 22, 27) %>%
+  group_rows("F43+", 28, 32) %>%
+  group_rows("M22-", 33, 38) %>%
+  group_rows("M23-26", 39, 48) %>%
+  group_rows("M27-28", 49, 56) %>%
+  group_rows("M29-31", 57, 67) %>%
+  group_rows("M32-38", 68, 77) %>%
+  group_rows("M39+", 78, 85)
+```
+
+```{r fig.width=13}
+phonebrandmf <- train %>%
+  mutate(mf = ifelse(grepl("M", train$group) == TRUE, "Male", "Female")) %>%
+  filter(is.na(phone_brand) == FALSE) %>%
+  select(group, mf, phone_brand)
+
+ggplot(data=phonebrandmf, aes(x=phone_brand, fill=mf)) +
+    geom_bar(stat="count", position=position_dodge())
+```
+
+Map of the location data
+```{r}
+locations <- train %>%
+  select(longitude, latitude) %>%
+  filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
+box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
+
+map <- get_map(location = box, maptype = 'terrain', source = 'google')
+
+p <- ggmap(map)
+p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
+```
+
+
+Most events occurred in the China area
