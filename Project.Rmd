@@ -400,7 +400,7 @@ labelcount <- uniquelabels %>%
 ggplot(data = labelcount, aes(x = reorder(category,-count),y=count,fill = count)) +
   geom_bar(stat="identity") +
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
-  #labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
+  labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
 
 Event_id distribution
