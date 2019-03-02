@@ -48,8 +48,9 @@ There is an issue with R not recognizing Chinese characters. First tried to chan
 events <- fread(file = 'events.csv', header = T)
 app_events <- fread('app_events.csv', header = T)
 app_labels <- fread('app_labels.csv', header = T)
-labelcategory <- fread('label_categories.csv', header = T)
+labelcategory <- fread('label_standardized categories.csv', header = T)
 gender_age <- fread('gender_age_train.csv', header = T)
+
 
 # Use read_csv here because of the Chinese characters issue
 phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
@@ -356,14 +357,8 @@ ggplot(data=train,aes(x=factor(is_active)))+
   geom_bar(stat="count",fill="steelblue")+
   ggtitle("Is_Active Distribution")
 ```
+
 #Phone Brand Distribution
-```{r }
-ggplot(data=train[is.na(phone_brand)==0],aes(x=phone_brand,fill=phone_brand))+
-  geom_bar(stat="count")+
-  ggtitle("Phone Brand Distribution")
-
-```
-
 ```{r fig.width=13}
 # Find phonebrand count
 phonebrandsorted <- train %>%
@@ -373,7 +368,7 @@ phonebrandsorted <- train %>%
   filter(is.na(phone_brand) == 0) %>%
   arrange(desc(count))
 
-ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count)) +
+ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count, fill=count)) +
   geom_bar(stat="identity") +
   labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
