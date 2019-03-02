@@ -385,8 +385,15 @@ ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count,
 
 App category counts
 ```{r fig.width=15}
-ggplot(data = labeltrain, aes(x = category, fill = category)) +
-  geom_bar(stat="count") +
+# Find label count
+labelcount <- uniquelabels %>%
+  select(category) %>%
+  group_by(category) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(data = labelcount, aes(x = reorder(category,-count),y=count,fill = count)) +
+  geom_bar(stat="identity") +
   theme(axis.text.x = element_text(angle = 60, hjust = 1))
   #labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
