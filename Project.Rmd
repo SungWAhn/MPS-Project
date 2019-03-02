@@ -38,8 +38,8 @@ knit_hooks$set(document = function(x) {
 ```
 ```{r echo=FALSE}
 # Plain setwd doesn't work for some reason
-opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
-setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+# opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+# setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
 ```
 
 There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
@@ -75,24 +75,28 @@ chin_eng_model <- read_excel("device_model translate.xlsx", sheet="Sheet1")
 
 # Replace each brand name with an english one with for loop
 phone <- phonebrand$phone_brand
+
 for (i in 1:121) {
   phone[phone==chin_eng_brand$`original phone brand`[i]] = chin_eng_brand$`new phone brand`[i]
 }
 
 model<-phonebrand$device_model
-for (i in 2:68){
+for (i in 1:68){
   model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
 }
 
 phonebrand$phone_brand <- phone
 phonebrand$device_model<-model
 
-# Check to see if there are any Chinese characters left
+
+
+
 leftoversbr <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
 leftoversbr
 
-leftoversmod <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
+leftoversmod <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$device_model) == FALSE), ]
 leftoversmod
+
 ```
 
 
