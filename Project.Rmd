@@ -73,12 +73,12 @@ chin_eng_model <- read_excel("device_model translate.xlsx", sheet="Sheet1")
 
 # Replace each brand name with an english one with for loop
 phone <- phonebrand$phone_brand
-for (i in 2:122) {
+for (i in 1:122) {
   phone[phone==chin_eng_brand$`original phone brand`[i]] = chin_eng_brand$`new phone brand`[i]
 }
 
 model<-phonebrand$device_model
-for (i in 2:68){
+for (i in 1:68){
   model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
 }
 
@@ -88,6 +88,11 @@ phonebrand$device_model<-model
 leftovers <- phonebrand[which(grepl('^[A-Za-z]\\D+$', phonebrand$phone_brand) == FALSE), ]
 leftovers <- leftovers[which(grepl('100+', leftovers$phone_brand)==FALSE),]
 leftovers
+
+# Check to see if there are any Chinese characters left
+leftovers_model <- phonebrand[which(grepl('[0-9A-Za-z]', phonebrand$device_model) == FALSE), ]
+leftovers_model <- leftovers_model[which(grepl('100+', leftovers$device_model)==FALSE),]
+leftovers_model
 ```
 
 
