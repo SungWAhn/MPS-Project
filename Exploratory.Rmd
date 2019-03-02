@@ -139,7 +139,7 @@ ggplot(data=train,aes(x=factor(is_active)))+
 phonebrandsorted <- train %>%
   select(phone_brand) %>%
   group_by(phone_brand) %>%
-  summarize(count = n()) %>%
+  dplyr::summarize(count = n()) %>%
   filter(is.na(phone_brand) == 0) %>%
   arrange(desc(count))
 
@@ -154,7 +154,7 @@ App category counts
 labelcount <- uniquelabels %>%
   select(category) %>%
   group_by(category) %>%
-  summarize(count = n()) %>%
+  dplyr::summarize(count = n()) %>%
   arrange(desc(count))
 
 ggplot(data = labelcount, aes(x = reorder(category,-count),y=count,fill = count)) +
@@ -226,7 +226,7 @@ groupcts <- data.frame('category' = c('M39+', 'M32-38', 'M29-31', 'M27-28', 'M23
 # Simpler with dplyr
 groupcts2 <- train %>%
   group_by(group) %>%
-  summarise(count = n()) %>%
+  dplyr::summarise(count = n()) %>%
   mutate(proportion = 100*count/sum(count))
 ```
 
@@ -311,12 +311,12 @@ phone_count=function(group) {
 # Phone brand count by group
 group_phone_count <- train %>%
   group_by(group, phone_brand) %>%
-  summarise(count = n()) %>%
+  dplyr::summarise(count = n()) %>%
   arrange(desc(count), .by_group = TRUE)
 
 phone_count <- train %>%
   group_by(group) %>%
-  summarise(count = n()) %>%
+  dplyr::summarise(count = n()) %>%
   arrange(desc(count))
 ```
 

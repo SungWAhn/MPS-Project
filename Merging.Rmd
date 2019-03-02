@@ -16,6 +16,89 @@ body{ /* Normal  */
 
 </style>
 
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+library(knitr)
+library(readr)
+library(data.table)
+library(bit64)
+library(Rmpfr)
+library(tidyverse)
+library(plyr)
+library(ggmosaic)
+library(ggmap)
+library(plotly)
+library(kableExtra)
+library(readxl)
+options(kableExtra.latex.load_packages = FALSE)
+knit_hooks$set(document = function(x) {
+  sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
+})
+
+```
+```{r echo=FALSE}
+# Plain setwd doesn't work for some reason
+# opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+# setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
+```
+
+There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
+```{r message=FALSE}
+# Plain read.csv can take a while. fread from data.table library is much more efficient
+events <- fread(file = 'events.csv', header = T)
+app_events <- fread('app_events.csv', header = T)
+app_labels <- fread('app_labels.csv', header = T)
+labelcategory <- fread('label_standardized categories.csv', header = T)
+gender_age <- fread('gender_age_train.csv', header = T)
+
+
+# Use read_csv here because of the Chinese characters issue
+phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
+```
+
+## Data Cleaning
+
+### Convert device_id to int64
+```{r}
+# phonebrand device_id is set as double:
+typeof(phonebrand$device_id)
+
+# Convert to int64 since double is less efficient
+phonebrand$device_id <- as.integer64.double(phonebrand$device_id)
+```
+
+### Translate Chinese characters
+```{r}
+# Read in the translation dataset
+chin_eng_brand <- read_excel("phone_brand-translate.xlsx", sheet = "Sheet1")
+chin_eng_model <- read_excel("device_model translate.xlsx", sheet="Sheet1")
+
+# Replace each brand name with an english one with for loop
+phone <- phonebrand$phone_brand
+
+for (i in 1:121) {
+  phone[phone==chin_eng_brand$`original phone brand`[i]] = chin_eng_brand$`new phone brand`[i]
+}
+
+model<-phonebrand$device_model
+for (i in 1:68){
+  model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
+}
+
+phonebrand$phone_brand <- phone
+phonebrand$device_model<-model
+
+
+
+
+leftoversbr <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
+leftoversbr
+
+leftoversmod <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$device_model) == FALSE), ]
+leftoversmod
+
+```
+
+
 ## Merging
 Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
 

@@ -379,7 +379,7 @@ ggplot(data=train,aes(x=factor(is_active)))+
 phonebrandsorted <- train %>%
   select(phone_brand) %>%
   group_by(phone_brand) %>%
-  summarize(count = n()) %>%
+  dplyr::summarize(count = n()) %>%
   filter(is.na(phone_brand) == 0) %>%
   arrange(desc(count))
 
@@ -405,12 +405,10 @@ ggplot(data = labelcount, aes(x = reorder(category,-count),y=count,fill = count)
 
 Event_id distribution
 ```{r}
-attach(train)
-
-
+train2 <- train
 require(data.table)
-setDT(train)[, count := uniqueN(event_id), by = device_id]
-count_event = train[, list(device_id, group,count)]
+setDT(train2)[, count := uniqueN(event_id), by = device_id]
+count_event = train2[, list(device_id, group,count)]
 count_event2 = unique(count_event)  # length 23309
 
 
