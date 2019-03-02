@@ -68,12 +68,12 @@ phonebrand$device_id <- as.integer64.double(phonebrand$device_id)
 ### Translate Chinese characters
 ```{r}
 # Read in the translation dataset
-chin_eng_brand <- read_excel("phone_brand translate.xlsx", sheet = "Sheet1")
+chin_eng_brand <- read_excel("phone_brand-translate.xlsx", sheet = "Sheet1")
 chin_eng_model <- read_excel("device_model translate.xlsx", sheet="Sheet1")
 
 # Replace each brand name with an english one with for loop
 phone <- phonebrand$phone_brand
-for (i in 2:122) {
+for (i in 1:121) {
   phone[phone==chin_eng_brand$`original phone brand`[i]] = chin_eng_brand$`new phone brand`[i]
 }
 
@@ -84,10 +84,13 @@ for (i in 2:68){
 
 phonebrand$phone_brand <- phone
 phonebrand$device_model<-model
+
 # Check to see if there are any Chinese characters left
-leftovers <- phonebrand[which(grepl('^[A-Za-z]\\D+$', phonebrand$phone_brand) == FALSE), ]
-leftovers <- leftovers[which(grepl('100+', leftovers$phone_brand)==FALSE),]
-leftovers
+leftoversbr <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
+leftoversbr
+
+leftoversmod <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
+leftoversmod
 ```
 
 
@@ -327,12 +330,8 @@ dim(train[is.na(train$age)])
 dim(train[is.na(train$group)])
 ```
 
-```{r}
-ggplot(data = train) +
-  geom_
-```
-
 ```{r fig.width=13}
+# Find phonebrand count
 phonebrandsorted <- train %>%
   select(phone_brand) %>%
   group_by(phone_brand) %>%
@@ -340,15 +339,11 @@ phonebrandsorted <- train %>%
   filter(is.na(phone_brand) == 0) %>%
   arrange(desc(count))
 
-ggplot(data = phonebrandsorted, aes(x = phone_brand, y = count)) +
-  geom_bar(stat="identity")
+ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count)) +
+  geom_bar(stat="identity") +
+  labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
 
-```{r}
-ggplot(data = train, aes(x = factor(group))) +
-  geom_bar(stat='count', width=0.7, fill="steelblue") +
-  theme_minimal()
-```
 
 Relationship of App Usage Count with Gender & Age
 ```{r}
@@ -454,17 +449,16 @@ phone_count=function(group) {
 }
 
 # Simpler with dplyr
-# Overall phone brand count
-phone_count <- train %>%
-  group_by(phone_brand) %>%
-  summarise(count = n()) %>%
-  arrange(desc(count))
-
 # Phone brand count by group
 group_phone_count <- train %>%
   group_by(group, phone_brand) %>%
   summarise(count = n()) %>%
   arrange(desc(count), .by_group = TRUE)
+
+phone_count <- train %>%
+  group_by(group) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
 ```
 
 ```{r results='asis', echo=FALSE}
@@ -493,12 +487,31 @@ phonebrandmf <- train %>%
   filter(is.na(phone_brand) == FALSE) %>%
   select(group, mf, phone_brand)
 
-ggplot(data=phonebrandmf, aes(x=phone_brand, fill=mf)) +
-    geom_bar(stat="count", position=position_dodge())
+groupgendercts <- train[is.na(phone_brand) == FALSE,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+"), phone_brand)]
+
+p <- ggplot(data=groupgendercts) +
+    geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender))
+ggplotly(p)
+
+z <- ggplot(data=groupgendercts) +
+  geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender)) +
+  facet_grid(gender~.)
+ggplotly(z)
+```
+
+```{r}
+ggplot(data = groupgendercts) +
+  geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
+  labs(x = "Age", y = "Gender", main = "App Usage by Age and Gender")
 ```
 
 Map of the location data
-```{r}
+```{r eval=FALSE}
 locations <- train %>%
   select(longitude, latitude) %>%
   filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
