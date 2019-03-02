@@ -277,7 +277,17 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
+```{r}
+response <- train[, list(device_id, gender, age, group, app_id)]
+head(response)
 
+uniquelabels <- labelsdat %>%
+  arrange(app_id) %>%
+  group_by(app_id, category) %>%
+  distinct(category)
+
+labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
+```
 
 ```{r}
 # Maybe don't need to do this final merge?
@@ -373,6 +383,13 @@ ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count,
   labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
 
+App category counts
+```{r fig.width=15}
+ggplot(data = labeltrain, aes(x = category, fill = category)) +
+  geom_bar(stat="count") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+  #labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
+```
 
 Relationship of App Usage Count with Gender & Age
 ```{r}
