@@ -1,9 +1,21 @@
 ---
-title: "Merging"
-author: "Sung-Woo Ahn"
-date: "March 2, 2019"
-output: html_document
+title: "MPS Project"
+author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
+date: "March 4, 2019"
+output: 
+  html_document:
+    highlight: pygments
+    theme: cosmo
 ---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+
+</style>
+
 ## Merging
 Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
 
