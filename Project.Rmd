@@ -281,7 +281,6 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 Location Data
 ```{r}
 inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
-
 ```
 58% of the location data is invalid.
 
@@ -320,6 +319,23 @@ dim(train[is.na(train$device_id)])
 dim(train[is.na(train$gender)])
 dim(train[is.na(train$age)])
 dim(train[is.na(train$group)])
+```
+
+```{r}
+ggplot(data = train) +
+  geom_
+```
+
+```{r fig.width=13}
+phonebrandsorted <- train %>%
+  select(phone_brand) %>%
+  group_by(phone_brand) %>%
+  summarize(count = n()) %>%
+  filter(is.na(phone_brand) == 0) %>%
+  arrange(desc(count))
+
+ggplot(data = phonebrandsorted, aes(x = phone_brand, y = count)) +
+  geom_bar(stat="identity")
 ```
 
 ```{r}
