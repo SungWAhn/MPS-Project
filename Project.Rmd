@@ -330,6 +330,39 @@ dim(train[is.na(train$age)])
 dim(train[is.na(train$group)])
 ```
 
+#Gender Distribution
+```{r}
+ggplot(data=train,aes(x=gender,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Gender Distribution")
+```
+
+#Age-Gender Distribution
+```{r}
+ggplot(data=train,aes(x=age,fill=gender))+
+  geom_histogram(stat="count")+
+  ggtitle("Age-Gender Distribution")
+```
+#Group Distribution
+```{r}
+ggplot(data=train,aes(x=group,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Group Distribution")
+```
+#Is_Active Distribution
+```{r}
+ggplot(data=train,aes(x=factor(is_active)))+
+  geom_bar(stat="count",fill="steelblue")+
+  ggtitle("Is_Active Distribution")
+```
+#Phone Brand Distribution
+```{r }
+ggplot(data=train[is.na(phone_brand)==0],aes(x=phone_brand,fill=phone_brand))+
+  geom_bar(stat="count")+
+  ggtitle("Phone Brand Distribution")
+
+```
+
 ```{r fig.width=13}
 # Find phonebrand count
 phonebrandsorted <- train %>%
