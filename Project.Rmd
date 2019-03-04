@@ -217,7 +217,8 @@ kable(events[1:6,], caption = 'Events') %>%
   column_spec(1, width = "15em")
 ```
 ```{r}
-merged2 <- merge(x = merged1, y = events, by = 'device_id')
+merged2 <- merge(x = merged1, y = events, by = 'device_id', all.x = T)
+merged2.noNA <- merged2[is.na(merged2$phone_brand)==FALSE | is.na(merged2$event_id)==FALSE]
 ```
 The result
 ```{r results='asis', echo=FALSE}
