@@ -134,12 +134,19 @@ phone_count <- train %>%
   summarise(count = n()) %>%
   arrange(desc(count))
 ```
+```{r}
+phone_count2 <- train %>%
+  group_by(phone_brand) %>%
+  distinct(device_id) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+```
 ```{r results='asis', echo=FALSE}
-kable(phone_count, caption = 'Phone Devices Count') %>%
+kable(phone_count2[2:21,], caption = 'Phone Devices Count') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
 
-```{r fig.width=11}
+```{r eval = FALSE, echo=FALSE}
 # Find phonebrand count
 phonebrandsorted <- train %>%
   select(phone_brand) %>%
@@ -147,8 +154,9 @@ phonebrandsorted <- train %>%
   dplyr::summarize(count = n()) %>%
   filter(phone_brand != "") %>%
   arrange(desc(count))
-
-ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count, fill=count)) +
+```
+```{r fig.width=11}
+ggplot(data = phone_count2[2:21,], aes(x = reorder(phone_brand, -count), y = count, fill=count)) +
   geom_bar(stat="identity") +
   theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12),
         axis.text.y = element_text(size = 12),
@@ -186,7 +194,7 @@ ggplot(data = labelcount, aes(x = reorder(category,-count), y=count, fill = coun
 
 
 #### Map of the location data
-```{r eval=FALSE}
+```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE}
 locations <- train %>%
   select(longitude, latitude) %>%
   filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
@@ -198,7 +206,7 @@ p <- ggmap(map)
 p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
 ```
 
-Most events occurred in the China area
+Most events occurred in Asia
 
 ### Bivariate Exploratory Analysis
 #### Relationship of Phonebrand with Gender & Age
@@ -231,6 +239,7 @@ phone_count=function(group) {
 ```{r}
 group_phone_count <- train %>%
   group_by(group, phone_brand) %>%
+  distinct(device_id) %>%
   dplyr::summarise(count = n()) %>%
   arrange(desc(count), .by_group = TRUE)
 ```
@@ -259,16 +268,20 @@ phonebrandmf <- train %>%
   select(group, mf, phone_brand)
 ```
 
-```{r fig.width=11, fig.align='center'}
-groupgendercts <- train[phone_brand != "",list(gender, age, agecat = case_when(age <= 23 ~ "23-",
+```{r}
+groupgendercts <- train %>%
+  filter(phone_brand != "") %>%
+  mutate(agecat = case_when(age <= 23 ~ "23-",
                             age > 23 & age <= 26 ~ "24-26",
                             age > 26 & age <= 28 ~ "27-28",
                             age > 28 & age <= 32 ~ "29-32",
                             age > 32 & age <= 42 ~ "33-42",
-                            age > 42 ~ "43+"), phone_brand)]
+                            age > 42 ~ "43+")) %>%
+  group_by(agecat, gender, phone_brand) %>%
+  distinct(device_id)
 
-
-
+```
+```{r fig.width=11, fig.align='center', echo = FALSE, eval=FALSE}
 p <- ggplot(data=groupgendercts) +
     geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender))
 ggplotly(p)
@@ -276,7 +289,8 @@ ggplotly(p)
 ```{r fig.width=11, fig.height=7, fig.align='center'}
 z <- ggplot(data=groupgendercts) +
   geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender)) +
-  facet_grid(gender~.)
+  facet_wrap(~ gender) +
+  labs(x = 'Phone Brands', y = 'Age', title = 'Phone Brand by Age and Gender')
 ggplotly(z)
 ```
 
@@ -349,7 +363,7 @@ groupcts2 <- train %>%
   mutate(proportion = 100*count/sum(count))
 ```
 
-```{r results='asis', echo=FALSE}
+```{r results='asis'}
 groupcts2 %>%
   mutate(
     count = cell_spec(count, color = ifelse(count == max(count[1:6]) | count == max(count[7:12]), "blue", "black")),
@@ -358,10 +372,8 @@ groupcts2 %>%
 kable(escape = F, caption = 'App Usage Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-In the female category, ages 33-42 are most active, while for males, ages 32-38 are most active.
-Males seem to be more active than females, but this is probably due to the fact that there are more males than females.
 
-A clearer picture of App Usage
+Visualization App Usage
 ```{r}
 # Dplyr way
 groupgendercts <- train %>%

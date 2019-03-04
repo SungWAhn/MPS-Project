@@ -16,6 +16,7 @@ body{ /* Normal  */
 
 </style>
 
+## Data Import
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(knitr)
 library(readr)
@@ -41,7 +42,7 @@ knit_hooks$set(document = function(x) {
 # setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
 ```
 
-There is an issue with R not recognizing Chinese characters. First tried to change the system locale, but this didn't work. Later tried changing the locale setting in read_csv, which sort of worked.
+There is an issue with R not recognizing Chinese characters. Tried changing the locale setting in read_csv, which sort of worked.
 ```{r message=FALSE}
 # Plain read.csv can take a while. fread from data.table library is much more efficient
 events <- fread(file = 'events.csv', header = T)
@@ -166,22 +167,17 @@ Looking at the examples, looks like the duplicates are the exact same individual
 # Any duplicate device_id? NO
 dim(gender_age[which(duplicated(gender_age$device_id) == T),])
 ```
-Gender_age has a unique device_id column. Every individual has a gneder/age class.
+Gender_age has a unique device_id column. Every individual has a gender/age class.
 
 To summarize:
 
-- App_events: no unique index
+- App_events: app_id and event_id not unique
 - events: **unique** event_id and nonunique device_id
-- app_labels: nonunique app_id and nonunique label_id
-- phonebrand: nonunique device_id, but these duplicates have exactly same rows
+- app_labels: app_id and label_id not unique
+- phonebrand: device_id not unique, but these duplicates have exactly same rows
 - gender_age: **unique** device_id
 
-
-This merge throws a warning because device_id is not unique in phonebrand
-```{r}
-# merged <- merge(x = appevents.events, y = phonebrand, by = 'device_id', all.x
-# = TRUE)
-```
+### Merge Operations
 
 Delete the duplicate rows in Phonebrand
 ```{r}
@@ -189,7 +185,7 @@ uniquephones <- unique(phonebrand)
 ```
 
 Merge sequentially, starting with datasets that have unique indexes. 
-First merge phonebrand with gender_age on device_id.
+First left join phonebrand with gender_age on device_id.
 ```{r results='asis', echo=FALSE}
 kable(gender_age[1:6, ], caption = 'Gender_Age') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
@@ -199,7 +195,7 @@ kable(phonebrand[1:6,], caption = 'Phonebrand') %>%
 ```
 ```{r}
 # Convert uniquephones to a data.table to prevent any memory issues
-merged1 <- merge(x = setDT(uniquephones), y = gender_age, by = 'device_id', all.y = T)
+merged1 <- merge(x = gender_age, y = setDT(uniquephones), by = 'device_id', all.x = T)
 ```
 The result
 ```{r results='asis', echo=FALSE}
@@ -209,7 +205,7 @@ kable(merged1[1:6,], caption = 'First Merge') %>%
 ```
 
 
-Second Merge: Merge the previous dataset with Events
+Second Merge: Inner Join the previous dataset with Events
 ```{r results='asis', echo=FALSE}
 kable(events[1:6,], caption = 'Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
@@ -227,7 +223,7 @@ kable(merged2[1:6,], caption = 'Second Merge') %>%
 ```
 
 
-The third merge. Merge the previous dataset with App_Events
+The third merge. Left join the previous dataset with App_Events
 ```{r results='asis', echo=FALSE}
 kable(app_events[1:6,], caption = 'App_Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
@@ -240,27 +236,6 @@ The result
 ```{r results='asis', echo=FALSE}
 kable(train[1:6,], caption = "Third Merge") %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
-```
-
-### Summary of the merges
-```{r}
-# Observation count
-merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
-```
-```{r results='asis', echo=FALSE}
-kable(merge.dims, caption = "Change in Length of Table") %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(2, width = "12em")
-```
-
-```{r}
-# Device id count
-merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
-```
-```{r results='asis', echo=FALSE}
-kable(merge.idcount, caption = "Change in Device ID Count") %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(2, width = "12em")
 ```
 
 There are still 2 datasets left pertaining to app descriptions
@@ -282,12 +257,79 @@ kable(labelsdat[1:10,], caption = 'App Labels') %>%
 
 ```{r}
 response <- train[, list(device_id, gender, age, group, app_id)]
-head(response)
-
+```
+```{r results='asis'}
+kable(response[1:10,], caption = 'Response') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+```{r}
 uniquelabels <- labelsdat %>%
   arrange(app_id) %>%
   group_by(app_id, category) %>%
   distinct(category)
 
+```
+```{r results='asis'}
+kable(uniquelabels[1:10,], caption = 'UniqueLabels') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+```{r}
 labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
+```
+```{r results='asis'}
+kable(labeltrain[1:10,], caption = 'Training+AppCategory') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+
+### Summary of the merges
+
+```{r}
+# Observation count
+merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Inner Join", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "Not Unique"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
+```
+```{r results='asis', echo=FALSE}
+kable(merge.dims, caption = "Change in Length of Table") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  column_spec(2, width = "12em")
+```
+
+```{r}
+# Device id count
+merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Inner Join", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "Not Unique"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
+```
+```{r results='asis', echo=FALSE}
+kable(merge.idcount, caption = "Change in Device ID Count") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  column_spec(2, width = "12em")
+```
+
+```{r}
+# To check if we lose any observations that have phonebrand info but no events info
+test<-merge(x = merged1[is.na(phone_brand) == FALSE], y = events, by = 'device_id')
+
+# How many observations with phonebrand data?
+dim(merged1[is.na(phone_brand)==FALSE])
+
+# How many observations are left after the second merge?
+test1 <- test %>%
+distinct(device_id)
+dim(test1)
+
+dim(merged1[is.na(phone_brand)==FALSE])-dim(test1)
+```
+We lost 336 observations
+
+To put them back in.
+```{r eval=FALSE}
+lostobs <- merged1[is.na(phone_brand)==FALSE, as.character.integer64(device_id) != as.character.integer64(test1$device_id), list(device_id)]
+lostobs = NULL
+for (i in 1:144) {
+  if(any(as.character.integer64(merged1[is.na(phone_brand)==FALSE, device_id]) != as.character.integer64(test1$device_id[i]))) {
+    lostobs[i] = as.character.integer64(test1$device_id[i])
+  }
+}
+phonebrand2 <- phonebrand
+phonebrand2$device_id <- as.character.integer64(phonebrand$device_id)
+lostbsdf <- data.frame("device_id" = lostobs)
+merge2lost <- merge(x = lostbsdf, y = phonebrand2, by = 'device_id', all.x = T)
 ```
