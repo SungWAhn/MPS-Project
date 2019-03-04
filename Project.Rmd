@@ -27,7 +27,6 @@ library(Rmpfr)
 library(tidyverse)
 library(ggmosaic)
 library(ggmap)
-library(plotly)
 library(kableExtra)
 library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
@@ -272,6 +271,7 @@ kable(labelcategory[1:6], caption = 'Label_Category') %>%
 ```{r}
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
 ```
+
 ```{r results='asis', echo=FALSE}
 kable(labelsdat[1:10,], caption = 'App Labels') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
@@ -345,12 +345,14 @@ ggplot(data=train,aes(x=age,fill=gender))+
   geom_histogram(stat="count")+
   ggtitle("Age-Gender Distribution")
 ```
+
 #Group Distribution
 ```{r}
 ggplot(data=train,aes(x=group,fill=gender))+
   geom_bar(stat="count")+
   ggtitle("Group Distribution")
 ```
+
 #Is_Active Distribution
 ```{r}
 ggplot(data=train,aes(x=factor(is_active)))+
@@ -372,7 +374,6 @@ ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count,
   geom_bar(stat="identity") +
   labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
 ```
-
 
 Relationship of App Usage Count with Gender & Age
 ```{r}
