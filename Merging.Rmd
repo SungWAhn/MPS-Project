@@ -399,5 +399,5 @@ merge2lost <- merge(x = lostbsdf, y = phonebrand2, by = 'device_id', all.x = T)
 response <- train[, list(device_id, event_id, app_id)]
 
 labeltrain2 <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain2 <- arrange(labeltrain, event_id)
+labeltrain2 <- arrange(labeltrain2, event_id)
 ```
