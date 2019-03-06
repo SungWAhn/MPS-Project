@@ -1,8 +1,8 @@
 ---
-title: "MPS Project"
+title: "MPS Project -- Data Cleaning and Merging"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
 date: "March 4, 2019"
-output: 
+output:
   html_document:
     highlight: pygments
     theme: cosmo
@@ -16,33 +16,37 @@ body{ /* Normal  */
 
 </style>
 
-## Data Import
-```{r warning=FALSE, message=FALSE, echo=FALSE}
+In this document, go over how we cleaned and merged the 6 datasets:
+
+- gender_age_train.csv
+- events.csv
+- app_events.csv
+- phone_brand_device_model.csv
+-label_categories.csv
+-app_labels.csv
+
+Read in libraries
+```{r warning=FALSE, message=FALSE}
 library(knitr)
 library(readr)
+library(readxl)
 library(data.table)
 library(bit64)
 library(Rmpfr)
 library(tidyverse)
 library(plyr)
-library(ggmosaic)
-library(ggmap)
-library(plotly)
 library(kableExtra)
-library(readxl)
+```
+```{r echo=FALSE}
 options(kableExtra.latex.load_packages = FALSE)
 knit_hooks$set(document = function(x) {
   sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
 })
 
 ```
-```{r echo=FALSE}
-# Plain setwd doesn't work for some reason
-# opts_knit$set(root.dir = 'C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
-# setwd('C:/Users/sungw/Documents/School/Cornell/MPS Project/Demographic')
-```
 
-There is an issue with R not recognizing Chinese characters. Change the locale setting in read_csv to recognize Chinese characters
+## Data Import
+
 ```{r message=FALSE}
 # Plain read.csv can take a while. fread from data.table library is much more efficient
 events <- fread(file = 'events.csv', header = T, integer64 = "character")
@@ -54,54 +58,73 @@ gender_age <- fread('gender_age_train.csv', header = T, integer64 = "character")
 
 # Use read_csv here because of the Chinese characters issue
 phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding = 'UTF-8'))
-```
-
-## Data Cleaning
-
-### Convert device_id to int64 for efficiency
-```{r}
-# phonebrand device_id is set as double:
-typeof(phonebrand$device_id)
-
-# Convert to int64 since double is less efficient
+# Manually convert device_id to character type
 phonebrand$device_id <- as.character(phonebrand$device_id)
 ```
 
+- The id columns, like app_id and device_id are converted to character type for efficiency
+- There is an issue with R not recognizing Chinese characters in the phone_brand_device_model file. Change the locale setting in read_csv to recognize Chinese characters. This didn't quite work, so we translated all columns with Chinese to English instead.
+
+## Data Cleaning
+
 ### Translate Chinese characters in the phone brand and model columns
+
+Created two excel files with translation keys; one for phone brand, and one for device model
 ```{r}
 # Read in the translation dataset
 chin_eng_brand <- read_excel("phone_brand-translate.xlsx", sheet = "Sheet1")
 chin_eng_model <- read_excel("device_model translate.xlsx", sheet="Sheet1")
+```
+```{r results='asis'}
+kable(chin_eng_brand[1:10,], caption = 'Preview of Phone Brand Translation Key') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+kable(chin_eng_model[1:10,], caption = 'Preview of Phone Model Translation Key') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
 
+Use a for loop: if the Chinese phone brand or model name matches a name on our translation key, replace with its English equivalent
+```{r}
 # Replace each brand name with an english one with for loop
 phone <- phonebrand$phone_brand
-
 for (i in 1:121) {
   phone[phone==chin_eng_brand$`original phone brand`[i]] = chin_eng_brand$`new phone brand`[i]
 }
+phonebrand$phone_brand <- phone
 
 # Replace each model name with an english one with for loop
 model<-phonebrand$device_model
 for (i in 1:68){
   model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
 }
-
-phonebrand$phone_brand <- phone
 phonebrand$device_model<-model
-
-
+```
+Now check for any rows where Chinese characters are still left. If there are no alphabets, then basically assume its still Chinese character
+```{r}
 # Check to make sure that all Chinese characters have been replaced
-leftoversbr <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$phone_brand) == FALSE), ]
+leftoversbr <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$phone_brand) == FALSE), ]
 leftoversbr
 
-leftoversmod <- phonebrand[which(grepl('[A-Za-z]', '\\d', phonebrand$device_model) == FALSE), ]
+leftoversmod <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$device_model) == FALSE), ]
 leftoversmod
 
 ```
 
 
+- Use 
+
 ## Merging
 Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
+
+
+**Main Points:**
+
+- App_events: app_id and event_id not unique
+- events: **unique** event_id and nonunique device_id
+- app_labels: app_id and label_id not unique
+- phonebrand: device_id not unique, but these duplicates have exactly same information
+- gender_age: **unique** device_id
+
+This means we can merge 
 
 ### events dataset
 ```{r}
@@ -211,14 +234,6 @@ for (i in 1:(length(phonebrand3$device_id)-1)) {
 dim(gender_age[which(duplicated(gender_age$device_id) == T),])
 ```
 Gender_age has a unique device_id column. Every individual has a gender/age class.
-
-To summarize:
-
-- App_events: app_id and event_id not unique
-- events: **unique** event_id and nonunique device_id
-- app_labels: app_id and label_id not unique
-- phonebrand: device_id not unique, but these duplicates have exactly same information
-- gender_age: **unique** device_id
 
 ### Merge Operations
 
@@ -376,4 +391,13 @@ phonebrand2 <- phonebrand
 phonebrand2$device_id <- as.character.integer64(phonebrand$device_id)
 lostbsdf <- data.frame("device_id" = lostobs)
 merge2lost <- merge(x = lostbsdf, y = phonebrand2, by = 'device_id', all.x = T)
+```
+
+
+
+```{r}
+response <- train[, list(device_id, event_id, app_id)]
+
+labeltrain2 <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
+labeltrain2 <- arrange(labeltrain, event_id)
 ```
