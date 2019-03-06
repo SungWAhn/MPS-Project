@@ -16,7 +16,7 @@ body{ /* Normal  */
 
 </style>
 
-# Import dataset
+## Import dataset
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(knitr)
 library(readr)
@@ -47,7 +47,126 @@ setDT(train[,-1])
 app_labels <- fread('app_labels.csv', header = T)
 labelcategory <- fread('label_standardized categories.csv', header = T)
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
+```
 
+## Exploratory Analysis
+
+### Missing Values
+
+#### Location Data
+```{r}
+dim(train[is.na(longitude) | is.na(latitude) | longitude == "" | latitude == ""])
+
+inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
+```
+No missing data, but 58% of the location data is still invalid.
+
+#### Phone Brand and Model Data
+```{r}
+dim(train[train$phone_brand==""])
+dim(train[train$phone_brand==""])[1]/dim(train)[1]*100
+
+dim(train[train$device_model==""])
+dim(train[train$device_model==""])[1]/dim(train)[1]*100
+```
+Almost 100% of phonebrands and phone models are missing
+
+#### Is_Installed and Is_Active Data
+```{r}
+dim(train[is.na(is_installed)])
+dim(train[is.na(is_installed)])[1]/dim(train)[1]*100
+
+dim(train[is.na(is_active)])
+dim(train[is.na(is_active)])[1]/dim(train)[1]*100
+```
+5.11% missing in is_installed and is_active variables
+
+```{r}
+dim(train[is.na(app_id) | app_id == ""])
+dim(train[is.na(app_id)])[1]/dim(train)[1]*100
+```
+5.11% missing in app_id
+
+#### The rest: no missing values
+```{r}
+dim(train[is.na(timestamp) | timestamp == ""])
+dim(train[is.na(event_id) | event_id == ""])
+dim(train[is.na(device_id) | device_id == ""])
+dim(train[is.na(gender) | gender == ""])
+dim(train[is.na(age) | age == ""])
+dim(train[is.na(group) | group == ""])
+```
+
+### Univariate Exploratory Analysis
+#### Gender Distribution
+```{r}
+ggplot(data=train,aes(x=gender,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Gender Distribution")
+```
+
+#### Age-Gender Distribution
+```{r warning=FALSE}
+ggplot(data=train,aes(x = age,fill = gender, color = gender))+
+  geom_histogram(stat = "count",alpha = .5 ,position = "identity")+
+  ggtitle("Age-Gender Distribution")
+```
+
+#### Group Distribution
+```{r}
+ggplot(data=train,aes(x=group,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Group Distribution")
+```
+
+#### Is_Active Distribution
+```{r}
+ggplot(data=train,aes(x=factor(is_active)))+
+  geom_bar(stat="count",fill="steelblue")+
+  ggtitle("Is_Active Distribution")+
+  labs(x = "is_active", y = "Count")
+```
+
+#### Phone Brand Distribution
+```{r}
+phone_count <- train %>%
+  group_by(phone_brand) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+```
+```{r}
+phone_count2 <- train %>%
+  group_by(phone_brand) %>%
+  distinct(device_id) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+```
+```{r results='asis', echo=FALSE}
+kable(phone_count2[2:21,], caption = 'Phone Devices Count') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+```
+
+```{r eval = FALSE, echo=FALSE}
+# Find phonebrand count
+phonebrandsorted <- train %>%
+  select(phone_brand) %>%
+  group_by(phone_brand) %>%
+  dplyr::summarize(count = n()) %>%
+  filter(phone_brand != "") %>%
+  arrange(desc(count))
+```
+```{r fig.width=11}
+ggplot(data = phone_count2[2:21,], aes(x = reorder(phone_brand, -count), y = count, fill=count)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        plot.title = element_text(size = 18)) +
+  labs(x = 'Phone Brands', y = 'Count', title = 'Phone Brand Distribution')
+```
+
+#### App category counts
+```{r fig.width=17, fig.height=8}
 
 response <- train[, list(device_id, gender, age, group, app_id)]
 
@@ -58,113 +177,125 @@ uniquelabels <- labelsdat %>%
 
 labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
 
-```
-
-## Exploratory Analysis
-
-### Missing Values
-
-Location Data
-```{r}
-inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
-```
-58% of the location data is invalid.
-
-Phone Brand and Model Data
-```{r}
-dim(train[is.na(train$phone_brand)])
-dim(train[is.na(train$phone_brand)])[1]/dim(train)[1]*100
-
-dim(train[is.na(train$device_model)])
-dim(train[is.na(train$device_model)])[1]/dim(train)[1]*100
-```
-Almost 100% of phonebrands and phone models are missing
-
-Is_Installed and Is_Active Data
-```{r}
-dim(train[is.na(train$is_installed)])
-dim(train[is.na(train$is_installed)])[1]/dim(train)[1]*100
-
-dim(train[is.na(train$is_active)])
-dim(train[is.na(train$is_active)])[1]/dim(train)[1]*100
-```
-
-```{r}
-dim(train[is.na(train$app_id)])
-dim(train[is.na(train$app_id)])[1]/dim(train)[1]*100
-
-dim(train[is.na(train$app_id) | app_id == 0])
-dim(train[is.na(train$app_id)])[1]/dim(train)[1]*100
-```
-
-No missing values in these predictors
-```{r}
-dim(train[is.na(train$timestamp)])
-dim(train[is.na(train$event_id)])
-dim(train[is.na(train$device_id)])
-dim(train[is.na(train$gender)])
-dim(train[is.na(train$age)])
-dim(train[is.na(train$group)])
-```
-
-#Gender Distribution
-```{r}
-ggplot(data=train,aes(x=gender,fill=gender))+
-  geom_bar(stat="count")+
-  ggtitle("Gender Distribution")
-```
-
-#Age-Gender Distribution
-```{r}
-ggplot(data=train,aes(x=age,fill=gender))+
-  geom_histogram(stat="count")+
-  ggtitle("Age-Gender Distribution")
-```
-#Group Distribution
-```{r}
-ggplot(data=train,aes(x=group,fill=gender))+
-  geom_bar(stat="count")+
-  ggtitle("Group Distribution")
-```
-#Is_Active Distribution
-```{r}
-ggplot(data=train,aes(x=factor(is_active)))+
-  geom_bar(stat="count",fill="steelblue")+
-  ggtitle("Is_Active Distribution")
-```
-
-#Phone Brand Distribution
-```{r fig.width=13}
-# Find phonebrand count
-phonebrandsorted <- train %>%
-  select(phone_brand) %>%
-  group_by(phone_brand) %>%
-  dplyr::summarize(count = n()) %>%
-  filter(is.na(phone_brand) == 0) %>%
-  arrange(desc(count))
-
-ggplot(data = phonebrandsorted, aes(x = reorder(phone_brand, -count), y = count, fill=count)) +
-  geom_bar(stat="identity") +
-  labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
-```
-
-App category counts
-```{r fig.width=15}
 # Find label count
 labelcount <- uniquelabels %>%
-  select(category) %>%
   group_by(category) %>%
-  dplyr::summarize(count = n()) %>%
+  dplyr::summarise(count = n()) %>%
   arrange(desc(count))
 
-ggplot(data = labelcount, aes(x = reorder(category,-count),y=count,fill = count)) +
+ggplot(data = labelcount, aes(x = reorder(category,-count), y=count, fill = count)) +
   geom_bar(stat="identity") +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1))
-  labs(x = 'Phone Brands', y = 'Count', Main = 'Phone Brand Count')
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18),
+        plot.title = element_text(size = 25)) +
+  labs(x = 'App Categories', y = 'Count', title = 'App Category Distribution')
 ```
 
-Event_id distribution
+
+#### Map of the location data
+```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE}
+locations <- train %>%
+  select(longitude, latitude) %>%
+  filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
+box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
+
+map <- get_map(location = box, maptype = 'terrain', source = 'google')
+
+p <- ggmap(map)
+p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
+```
+
+Most events occurred in Asia
+
+### Bivariate Exploratory Analysis
+#### Relationship of Phonebrand with Gender & Age
+```{r echo = FALSE}
+# Function to count the number of different brands each group category uses
+phone_count=function(group) {
+  lenova<-dim(train[which(train$group==group& train$phone_brand=='lenova')])[1]
+  samsung<-dim(train[which(train$group==group & train$phone_brand=='samsung')])[1]
+  ctyon<-dim(train[which(train$group==group & train$phone_brand=='ctyon')])[1]
+  coolpad<-dim(train[which(train$group==group & train$phone_brand=='coolpad')])[1]
+  vivo<-dim(train[which(train$group==group & train$phone_brand=='vivo')])[1]
+  huawei<-dim(train[which(train$group==group & train$phone_brand=='huawei')])[1]
+  gionee<-dim(train[which(train$group==group & train$phone_brand=='gionee')])[1]
+  le<-dim(train[which(train$group==group & train$phone_brand=='le')])[1]
+  meizu<-dim(train[which(train$group==group & train$phone_brand=='meizu')])[1]
+  mi<-dim(train[which(train$group==group & train$phone_brand=='mi')])[1]
+  meitu<-dim(train[which(train$group==group & train$phone_brand=='meitu')])[1]
+  smartisan<-dim(train[which(train$group==group & train$phone_brand=='smartisan')])[1]
+  yitong<-dim(train[which(train$group==group & train$phone_brand=='yitong')])[1]
+  zte<-dim(train[which(train$group==group & train$phone_brand=='zte')])[1]
+  koobee<-dim(train[which(train$group==group & train$phone_brand=='koobee')])[1]
+  doov<-dim(train[which(train$group==group & train$phone_brand=='doov')])[1]
+  nubia<-dim(train[which(train$group==group & train$phone_brand=='nubia')])[1]
+  na<-dim(train[which(train$group==group & is.na(train$phone_brand))])[1]
+  group_phone_count<-data.frame('phone_brand'=c('lenova','samsung', 'ctyon', 'coolpad', 'vivo', 'huawei', 'gionee', 'le','meizu','smartisan','yitong', 'zte', 'koobee', 'doov','nubia', 'na'), 'count'=c(lenova, samsung, ctyon, coolpad, vivo, huawei, gionee, le, meizu, smartisan, yitong, zte, koobee, doov, nubia, na))
+  return(group_phone_count)
+}
+
+```
 ```{r}
+group_phone_count <- train %>%
+  group_by(group, phone_brand) %>%
+  distinct(device_id) %>%
+  dplyr::summarise(count = n()) %>%
+  arrange(desc(count), .by_group = TRUE)
+```
+
+```{r results='asis', echo=FALSE}
+kable(group_phone_count, caption = 'Phone Brands By Group') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  group_rows("F23-", 1, 6) %>%
+  group_rows("F24-26", 7, 11) %>%
+  group_rows("F27-28", 12, 15) %>%
+  group_rows("F29-32", 16, 21) %>%
+  group_rows("F33-42", 22, 27) %>%
+  group_rows("F43+", 28, 32) %>%
+  group_rows("M22-", 33, 38) %>%
+  group_rows("M23-26", 39, 48) %>%
+  group_rows("M27-28", 49, 56) %>%
+  group_rows("M29-31", 57, 67) %>%
+  group_rows("M32-38", 68, 77) %>%
+  group_rows("M39+", 78, 85)
+```
+
+```{r echo=FALSE}
+phonebrandmf <- train %>%
+  mutate(mf = ifelse(grepl("M", train$group) == TRUE, "Male", "Female")) %>%
+  filter(phone_brand != "") %>%
+  select(group, mf, phone_brand)
+```
+
+```{r}
+groupgendercts <- train %>%
+  filter(phone_brand != "") %>%
+  mutate(agecat = case_when(age <= 23 ~ "23-",
+                            age > 23 & age <= 26 ~ "24-26",
+                            age > 26 & age <= 28 ~ "27-28",
+                            age > 28 & age <= 32 ~ "29-32",
+                            age > 32 & age <= 42 ~ "33-42",
+                            age > 42 ~ "43+")) %>%
+  group_by(agecat, gender, phone_brand) %>%
+  distinct(device_id)
+
+```
+```{r fig.width=11, fig.align='center', echo = FALSE, eval=FALSE}
+p <- ggplot(data=groupgendercts) +
+    geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender))
+ggplotly(p)
+```
+```{r fig.width=11, fig.height=7, fig.align='center'}
+z <- ggplot(data=groupgendercts) +
+  geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender)) +
+  facet_wrap(~ gender) +
+  labs(x = 'Phone Brands', y = 'Age', title = 'Phone Brand by Age and Gender')
+ggplotly(z)
+```
+
+#### Relationship of Gender and Age with Event_id and Device_id
+```{r fig.width=13}
 train2 <- train
 require(data.table)
 setDT(train2)[, count := uniqueN(event_id), by = device_id]
@@ -191,16 +322,22 @@ for (i in 1:len){
   grp_max[i] <- max(thisgroup$count)
   grp_min[i] <- min(thisgroup$count)
 }
-barplot(grp_sum,names.arg=grp, las=2)
-barplot(grp_num,names.arg=grp, las=2)
-barplot(grp_mean,names.arg=grp, las=2)
+
 grp_event <- data.frame('group'=grp,'number'=grp_num,'sum'=grp_sum,'mean'=grp_mean,'median'=grp_median,
                         'max'=grp_max,'min'=grp_min)
-grp_event
-
+```
+```{r results='asis'}
+grp_event %>%
+  kable(escape = F, caption = 'Events') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+```{r}
+barplot(grp_sum,names.arg=grp, las=2, xlab = 'Group', main = 'Event Distribution by Group')
+barplot(grp_num,names.arg=grp, las=2, xlab = 'Group', main = 'Unique Device ID by Group')
+barplot(grp_mean,names.arg=grp, las=2, xlab = 'Group', main = 'Mean Event Count by Group')
 ```
 
-Relationship of App Usage Count with Gender & Age
+#### Relationship of App Usage (event_id not unique) with Gender & Age
 ```{r}
 # Count number of app uses each group category has
 m39 <- dim(train[which(train$group == 'M39+')])[1]
@@ -226,7 +363,7 @@ groupcts2 <- train %>%
   mutate(proportion = 100*count/sum(count))
 ```
 
-```{r results='asis', echo=FALSE}
+```{r results='asis'}
 groupcts2 %>%
   mutate(
     count = cell_spec(count, color = ifelse(count == max(count[1:6]) | count == max(count[7:12]), "blue", "black")),
@@ -236,18 +373,7 @@ kable(escape = F, caption = 'App Usage Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
-Males seem to be more active than females, but this is probably due to the fact that there are more males than females:
-```{r}
-malecount <- sum(groupcts[1:6,2])
-femalecount <- sum(groupcts[7:12,2])
-percentage <- (malecount-femalecount)/malecount
-percentage
-```
-There are 63% more males than females in the dataset
-
-In the female category, ages 33-42 are most active, while for males, ages 32-38 are most active.
-
-A clearer picture of App Usage
+Visualization App Usage
 ```{r}
 # Dplyr way
 groupgendercts <- train %>%
@@ -269,114 +395,5 @@ groupgendercts <- train[,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
 
 ggplot(data = groupgendercts) +
   geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
-  labs(x = "Age", y = "Gender", main = "App Usage by Age and Gender")
+  labs(x = "Age", y = "Gender", title = "App Usage by Age and Gender")
 ```
-
-
-Relationship of Phonebrand with Gender & Age
-```{r}
-unique(train[which(train$group == 'M39+')]$phone_brand)
-```
-```{r}
-# Function to count the number of different brands each group category uses
-m39.lenova<-dim(train[which(train$group=='M39+'& train$phone_brand=='??????')])[1]
-phone_count=function(group) {
-  lenova<-dim(train[which(train$group==group& train$phone_brand=='lenova')])[1]
-  samsung<-dim(train[which(train$group==group & train$phone_brand=='samsung')])[1]
-  ctyon<-dim(train[which(train$group==group & train$phone_brand=='ctyon')])[1]
-  coolpad<-dim(train[which(train$group==group & train$phone_brand=='coolpad')])[1]
-  vivo<-dim(train[which(train$group==group & train$phone_brand=='vivo')])[1]
-  huawei<-dim(train[which(train$group==group & train$phone_brand=='huawei')])[1]
-  gionee<-dim(train[which(train$group==group & train$phone_brand=='gionee')])[1]
-  le<-dim(train[which(train$group==group & train$phone_brand=='le')])[1]
-  meizu<-dim(train[which(train$group==group & train$phone_brand=='meizu')])[1]
-  mi<-dim(train[which(train$group==group & train$phone_brand=='mi')])[1]
-  meitu<-dim(train[which(train$group==group & train$phone_brand=='meitu')])[1]
-  smartisan<-dim(train[which(train$group==group & train$phone_brand=='smartisan')])[1]
-  yitong<-dim(train[which(train$group==group & train$phone_brand=='yitong')])[1]
-  zte<-dim(train[which(train$group==group & train$phone_brand=='zte')])[1]
-  koobee<-dim(train[which(train$group==group & train$phone_brand=='koobee')])[1]
-  doov<-dim(train[which(train$group==group & train$phone_brand=='doov')])[1]
-  nubia<-dim(train[which(train$group==group & train$phone_brand=='nubia')])[1]
-  na<-dim(train[which(train$group==group & is.na(train$phone_brand))])[1]
-  group_phone_count<-data.frame('phone_brand'=c('lenova','samsung', 'ctyon', 'coolpad', 'vivo', 'huawei', 'gionee', 'le','meizu','smartisan','yitong', 'zte', 'koobee', 'doov','nubia', 'na'), 'count'=c(lenova, samsung, ctyon, coolpad, vivo, huawei, gionee, le, meizu, smartisan, yitong, zte, koobee, doov, nubia, na))
-  return(group_phone_count)
-}
-
-# Simpler with dplyr
-# Phone brand count by group
-group_phone_count <- train %>%
-  group_by(group, phone_brand) %>%
-  dplyr::summarise(count = n()) %>%
-  arrange(desc(count), .by_group = TRUE)
-
-phone_count <- train %>%
-  group_by(group) %>%
-  dplyr::summarise(count = n()) %>%
-  arrange(desc(count))
-```
-
-```{r results='asis', echo=FALSE}
-kable(phone_count, caption = 'Phone Devices Count') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
-
-kable(group_phone_count, caption = 'Phone Devices By Group') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  group_rows("F23-", 1, 6) %>%
-  group_rows("F24-26", 7, 11) %>%
-  group_rows("F27-28", 12, 15) %>%
-  group_rows("F29-32", 16, 21) %>%
-  group_rows("F33-42", 22, 27) %>%
-  group_rows("F43+", 28, 32) %>%
-  group_rows("M22-", 33, 38) %>%
-  group_rows("M23-26", 39, 48) %>%
-  group_rows("M27-28", 49, 56) %>%
-  group_rows("M29-31", 57, 67) %>%
-  group_rows("M32-38", 68, 77) %>%
-  group_rows("M39+", 78, 85)
-```
-
-```{r fig.width=13}
-phonebrandmf <- train %>%
-  mutate(mf = ifelse(grepl("M", train$group) == TRUE, "Male", "Female")) %>%
-  filter(is.na(phone_brand) == FALSE) %>%
-  select(group, mf, phone_brand)
-
-groupgendercts <- train[is.na(phone_brand) == FALSE,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
-                            age > 23 & age <= 26 ~ "24-26",
-                            age > 26 & age <= 28 ~ "27-28",
-                            age > 28 & age <= 32 ~ "29-32",
-                            age > 32 & age <= 42 ~ "33-42",
-                            age > 42 ~ "43+"), phone_brand)]
-
-p <- ggplot(data=groupgendercts) +
-    geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender))
-ggplotly(p)
-
-z <- ggplot(data=groupgendercts) +
-  geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender)) +
-  facet_grid(gender~.)
-ggplotly(z)
-```
-
-```{r}
-ggplot(data = groupgendercts) +
-  geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
-  labs(x = "Age", y = "Gender", main = "App Usage by Age and Gender")
-```
-
-Map of the location data
-```{r eval=FALSE}
-locations <- train %>%
-  select(longitude, latitude) %>%
-  filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
-box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
-
-map <- get_map(location = box, maptype = 'terrain', source = 'google')
-
-p <- ggmap(map)
-p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
-```
-
-
-Most events occurred in the China area

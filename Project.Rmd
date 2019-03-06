@@ -28,7 +28,6 @@ library(tidyverse)
 library(plyr)
 library(ggmosaic)
 library(ggmap)
-library(plotly)
 library(kableExtra)
 library(readxl)
 options(kableExtra.latex.load_packages = FALSE)
@@ -218,7 +217,8 @@ kable(events[1:6,], caption = 'Events') %>%
   column_spec(1, width = "15em")
 ```
 ```{r}
-merged2 <- merge(x = merged1, y = events, by = 'device_id')
+merged2 <- merge(x = merged1, y = events, by = 'device_id', all.x = T)
+merged2.noNA <- merged2[is.na(merged2$phone_brand)==FALSE | is.na(merged2$event_id)==FALSE]
 ```
 The result
 ```{r results='asis', echo=FALSE}
@@ -277,6 +277,7 @@ kable(labelcategory[1:6], caption = 'Label_Category') %>%
 ```{r}
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
 ```
+
 ```{r results='asis', echo=FALSE}
 kable(labelsdat[1:10,], caption = 'App Labels') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
@@ -360,12 +361,14 @@ ggplot(data=train,aes(x=age,fill=gender))+
   geom_histogram(stat="count")+
   ggtitle("Age-Gender Distribution")
 ```
+
 #Group Distribution
 ```{r}
 ggplot(data=train,aes(x=group,fill=gender))+
   geom_bar(stat="count")+
   ggtitle("Group Distribution")
 ```
+
 #Is_Active Distribution
 ```{r}
 ggplot(data=train,aes(x=factor(is_active)))+
