@@ -92,19 +92,20 @@ for (i in 1:121) {
 phonebrand$phone_brand <- phone
 
 # Replace each model name with an english one with for loop
-model<-phonebrand$device_model
-for (i in 1:68){
-  model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
+model <- phonebrand$device_model
+for (i in 1:67) {
+  model[model==chin_eng_model$`original model name`[i]] = chin_eng_model$`new model name`[i]
 }
-phonebrand$device_model<-model
+phonebrand$device_model <- model
 ```
+
 Now check for any rows where Chinese characters are still left. If there are no alphabets, then basically assume its still Chinese character
 ```{r}
 # Check to make sure that all Chinese characters have been replaced
 leftoversbr <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$phone_brand) == FALSE), ]
 leftoversbr
 
-leftoversmod <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$device_model) == FALSE), ]
+leftoversmod <- phonebrand[which(grepl("[[:alpha:]]", phonebrand$device_model) == FALSE), ]
 leftoversmod
 
 ```
@@ -399,5 +400,5 @@ merge2lost <- merge(x = lostbsdf, y = phonebrand2, by = 'device_id', all.x = T)
 response <- train[, list(device_id, event_id, app_id)]
 
 labeltrain2 <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain2 <- arrange(labeltrain, event_id)
+labeltrain2 <- arrange(labeltrain2, event_id)
 ```
