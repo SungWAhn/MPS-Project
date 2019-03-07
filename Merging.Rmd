@@ -93,7 +93,7 @@ phonebrand$phone_brand <- phone
 
 # Replace each model name with an english one with for loop
 model<-phonebrand$device_model
-for (i in 1:68){
+for (i in 1:178){
   model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
 }
 phonebrand$device_model<-model
