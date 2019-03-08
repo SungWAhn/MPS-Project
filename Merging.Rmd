@@ -1,7 +1,7 @@
 ---
 title: "MPS Project -- Data Cleaning and Merging"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
-date: "March 4, 2019"
+date: "March 8, 2019"
 output:
   html_document:
     highlight: pygments
@@ -22,8 +22,8 @@ In this document, go over how we cleaned and merged the 6 datasets:
 - events.csv
 - app_events.csv
 - phone_brand_device_model.csv
--label_categories.csv
--app_labels.csv
+- label_categories.csv
+- app_labels.csv
 
 Read in libraries
 ```{r warning=FALSE, message=FALSE}
@@ -62,8 +62,8 @@ phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding 
 phonebrand$device_id <- as.character(phonebrand$device_id)
 ```
 
-- The id columns, like app_id and device_id are converted to character type for efficiency
-- There is an issue with R not recognizing Chinese characters in the phone_brand_device_model file. Change the locale setting in read_csv to recognize Chinese characters. This didn't quite work, so we translated all columns with Chinese to English instead.
+- The id columns like app_id and device_id are converted to character type for efficiency
+- There is an issue with R not recognizing Chinese characters in the phone_brand_device_model file. Change the locale setting in read_csv to recognize Chinese characters. Below, we also translated all columns with Chinese to English for easier analysis.
 
 ## Data Cleaning
 
@@ -96,8 +96,9 @@ model<-phonebrand$device_model
 for (i in 1:178){
   model[model==chin_eng_model$`original model name`[i]]=chin_eng_model$`new model name`[i]
 }
-phonebrand$device_model<-model
+phonebrand$device_model <- model
 ```
+
 Now check for any rows where Chinese characters are still left. If there are no alphabets, then basically assume its still Chinese character
 ```{r}
 # Check to make sure that all Chinese characters have been replaced
@@ -106,25 +107,22 @@ leftoversbr
 
 leftoversmod <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$device_model) == FALSE), ]
 leftoversmod
-
 ```
+Everything was translated.
 
-
-- Use 
 
 ## Merging
-Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
 
+Before merging, look at the properties of each of the datasets. Determine which columns are unique and which have duplicates.
 
 **Main Points:**
 
-- App_events: app_id and event_id not unique
-- events: **unique** event_id and nonunique device_id
-- app_labels: app_id and label_id not unique
-- phonebrand: device_id not unique, but these duplicates have exactly same information
-- gender_age: **unique** device_id
-
-This means we can merge 
+- gender_age: Dataset with a list of device_id and their response, gender_age. **Unique** device_id.
+- events: Dataset with a list of all events. **Unique** event_id and nonunique device_id.
+- App_events: Dataset with a list of apps used at each event. App_id and event_id not unique.
+- phonebrand: Dataset with a list of device_id and their phone brand and model. Device_id not unique, although many of the duplicates have exactly same information.
+- app_labels: Dataset with a list of all apps and their label_id. App_id and label_id not unique.
+- Labelcategory: Dataset with a list of label_id and their category. **Unique** label_id, category and subcategory not unique.
 
 ### events dataset
 ```{r}
@@ -140,7 +138,7 @@ kable(events[device_id==events[[81, 2]]][1:10,], caption = 'One device_id can ha
 ```
 This dataset has a list of unique events, but multiple events could have same device_ids. The event_id is unique index.
 
-### app_events datset
+### app_events dataset
 ```{r}
 # Any duplicate event_id? YES
 dim(app_events[which(duplicated(app_events$event_id) == T),])
@@ -154,9 +152,9 @@ kable(app_events[event_id == 568,][1:10], caption = 'Multiple Apps Used in One E
 kable(app_events[app_id == '6284164581582112235',][1:10], caption = 'Same Apps are used in Multiple Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-For every event_id, there are multiple app_ids associated. App_ids are not unique either. This dataset has no unique index.
+For every event_id, there are multiple app_ids associated. Same app_ids can be associated with different event_ids. This dataset has no unique index.
 
-### app_labels
+### app_labels dataset
 ```{r}
 # Any duplicate app_id? YES
 dim(app_labels[which(duplicated(app_labels$app_id) == T),])
@@ -165,15 +163,15 @@ dim(app_labels[which(duplicated(app_labels$label_id) == T),])
 # An of the example duplicates
 ```
 ```{r results='asis'}
-kable(app_labels[app_id==app_labels[[4, 1]],][1:10], caption = 'Apps Are Under Multiple Categories') %>%
+kable(app_labels[app_id==app_labels[[4, 1]],][1:10], caption = 'Same App is Under Multiple Categories') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 
-kable(app_labels[label_id==app_labels[[5, 2]],][1:10], caption = 'Multiple Apps Are Under Same Categories') %>%
+kable(app_labels[label_id==app_labels[[5, 2]],][1:10], caption = 'Multiple Apps Are Under Same Category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-Apps can be categorized under multiple label_ids, and many apps and the same labels are used multiple times for different apps. No unique index.
+App_ids can be categorized under multiple label_ids, and the same label_ids are used multiple times for different app_ids. No unique index.
 
-### label_category
+### label_category dataset
 ```{r}
 # Any duplicate label_id? NO
 dim(labelcategory[which(duplicated(labelcategory$label_id) == T),])
@@ -185,10 +183,10 @@ dim(labelcategory[which(duplicated(labelcategory$`sub-category`) == T),])
 kable(labelcategory[`sub-category`=="Medical"], caption = 'Some Label_id have same sub-category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 
-kable(labelcategory[category=="game"], caption = 'Many Label_id have same category') %>%
+kable(labelcategory[category=="game"][1:10], caption = 'Many Label_id have same category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-Label_id is unique. The text descriptions are not unique, so multiple label_ids can have the same text descriptions.
+Label_id is unique. Sub-categories and categries are not unique, so multiple label_ids can have the same sub-category or categories.
 
 ### Phonebrand dataset
 ```{r}
@@ -205,45 +203,54 @@ kable(phonebrand[which(phonebrand$device_id==phonebrand[[34351,1]]),], caption =
 ```
 Looking at the examples, looks like the duplicates are the exact same individuals. Safe to delete?
 ```{r}
-# Find device ids that are repeated
+# Find device_ids that are repeated AND have the same device models
 phonebrand2 <- phonebrand %>%
-  group_by(device_id) %>%
-  summarise(device_id.count = n()) %>%
-  filter(device_id.count > 2) %>%
+  group_by(device_id, device_model) %>%
+  dplyr::summarise(phonebrand.count = n()) %>%
+  filter(phonebrand.count > 1) %>%
   arrange(device_id)
-phonebrand2
-
+dim(phonebrand2)
+```
+523 device_ids have another row with the same device model
+```{r}
+# Find device ids with repeating rows
 phonebrand3 <- phonebrand %>%
-  arrange(device_id) %>%
-  filter(is.na(device_model) == FALSE)
-phonebrand3
-
-phoneduplicates = NULL
-
-for (i in 1:(length(phonebrand3$device_id)-1)) {
-  if(phonebrand3$device_id[i] == phonebrand3$device_id[i+1] & phonebrand3$device_model[i] != phonebrand3$device_model[i+1]) {
-    phoneduplicates[i] = phonebrand3$device_id[i]
-  } 
-}
+  group_by(device_id) %>%
+  dplyr::summarise(device_id.count = n()) %>%
+  filter(device_id.count > 1)
+dim(phonebrand3)
+```
+530 device_ids have another row, but they don't have to have the same device model. This means that there are 7 device_ids with 2 different phones brands.
+```{r}
+twophones <- setdiff(phonebrand3$device_id, phonebrand2$device_id)
 ```
 
+```{r}
+phonebrand[which(phonebrand$device_id %in% twophones),] %>%
+  arrange(device_id)
+```
+In the cases where the device_id have two different device models, should not delete the rows.
 
 ### Gender_age dataset
 ```{r}
 # Any duplicate device_id? NO
 dim(gender_age[which(duplicated(gender_age$device_id) == T),])
 ```
+```{r results='asis'}
+kable(arrange(gender_age, device_id)[1:15,], caption = 'Preview of Gender_Age Dataset') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
 Gender_age has a unique device_id column. Every individual has a gender/age class.
+
 
 ### Merge Operations
 
-Delete the duplicate rows in Phonebrand
+First delete the duplicate rows in phonebrand dataset, while at the same time keeping the device_ids that have two different phone models. The unique() function will do this for us since it only deletes rows with exact same information.
 ```{r}
 uniquephones <- unique(phonebrand)
 ```
 
-Merge sequentially, starting with datasets that have unique indexes. 
-First left join phonebrand with gender_age on device_id.
+First left join phonebrand with gender_age by device_id
 ```{r results='asis'}
 kable(gender_age[1:6, ], caption = 'Gender_Age') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
@@ -257,13 +264,13 @@ merged1 <- merge(x = gender_age, y = setDT(uniquephones), by = 'device_id', all.
 ```
 The result
 ```{r results='asis'}
-kable(merged1[1:6,], caption = 'First Merge') %>%
+kable(merged1[1:6,], caption = 'Gender_Age + Phonebrand') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
   column_spec(1, width = "15em")
 ```
 
 
-Second Merge: Inner Join the previous dataset with Events
+Second Merge: Left Join the previous dataset with Events by device_id
 ```{r results='asis'}
 kable(events[1:6,], caption = 'Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
@@ -271,133 +278,143 @@ kable(events[1:6,], caption = 'Events') %>%
 ```
 ```{r}
 merged2 <- merge(x = merged1, y = events, by = 'device_id', all.x = T)
+```
+
+<mark> Before moving on to the next merge, remove observations where every column except the response columns, $gender$, $age$, and $group$, is missing. </mark>
+
+```{r}
 merged2.noNA <- merged2[is.na(merged2$phone_brand)==FALSE | is.na(merged2$event_id)==FALSE]
 ```
 The result
 ```{r results='asis'}
-kable(merged2[1:6,], caption = 'Second Merge') %>%
+kable(merged2.noNA[1:6,], caption = 'Previous + Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
   column_spec(1, width = "12em") %>%
   column_spec(6, width = "6em")
 ```
 
 
-The third merge. Left join the previous dataset with App_Events
+The third merge. Left join the previous dataset with App_Events by event_id.
 ```{r results='asis'}
 kable(app_events[1:6,], caption = 'App_Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
   column_spec(1, width = "15em")
 ```
+Call this third merge the train dataset.
 ```{r}
 train <- merge(x = merged2.noNA, y = app_events, by = 'event_id', all.x = T)
 ```
 The result
 ```{r results='asis'}
-kable(train[1:6,], caption = "Third Merge") %>%
+kable(train[1:6,], caption = "Previous + App_Events") %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
-There are still 2 datasets left pertaining to app descriptions
+Save the final train dataset
+```{r}
+fwrite(train, "train.csv")
+```
+
+There are still 2 datasets left pertaining to app descriptions. Merged separately to keep the train dataset from getting very large.
 ```{r results='asis'}
-# Merge the app_label with label_category
 kable(app_labels[1:6,], caption = 'App_Labels') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 
 kable(labelcategory[1:6], caption = 'Label_Category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
+Left Join App_labels with Label_category by label_id. Call this labelsdat.
 ```{r}
+# Merge the app_label with label_category
 labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
 ```
 ```{r results='asis'}
-kable(labelsdat[1:10,], caption = 'App Labels') %>%
+kable(labelsdat[1:10,], caption = 'App_labels + Label_category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-
+Try merging a few columns from the train dataset with the labelsdat dataset.
 ```{r}
-response <- train[, list(device_id, gender, age, group, app_id)]
+response <- train[, list(device_id, event_id, app_id)]
 ```
 ```{r results='asis'}
+kable(response[1:10,], caption = 'Subset of Train Dataset') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+Left join subset of train with Labelsdat by App_id. Call this labeltrain
+```{r}
+labeltrain <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
+labeltrain <- arrange(labeltrain, event_id)
+```
+
+The result
+```{r results='asis'}
+kable(labeltrain[1:10,], caption = 'Subset of Train + Labelsdat') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+Save dataset
+```{r eval=FALSE}
+fwrite(labeltrain, "labeltrain.csv")
+fwrite(labelsdat, "labelsdat.csv")
+```
+```{r echo=FALSE, eval=FALSE}
+response <- train[, list(device_id, gender, age, group, app_id)]
+```
+```{r results='asis', echo=FALSE, eval=FALSE}
 kable(response[1:10,], caption = 'Response') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-```{r}
+```{r echo=FALSE, eval=FALSE}
 uniquelabels <- labelsdat %>%
   arrange(app_id) %>%
   group_by(app_id, category) %>%
   distinct(category)
 
 ```
-```{r results='asis'}
+```{r results='asis', echo=FALSE, eval=FALSE}
 kable(uniquelabels[1:10,], caption = 'UniqueLabels') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-```{r}
+```{r echo=FALSE, eval=FALSE}
 labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
 ```
-```{r results='asis'}
+```{r results='asis', echo=FALSE, eval=FALSE}
 kable(labeltrain[1:10,], caption = 'Training+AppCategory') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 
-### Summary of the merges
+### Merge Summary
 
 ```{r}
-# Observation count
-merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Inner Join", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "Not Unique"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(train)[1]))
+# Observation count of first three merges
+merge.dims <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Delete Unneeded Rows", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Left Join", "", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "", "Not Unique"), "Obs Count" = c(dim(gender_age)[1], dim(merged1)[1], dim(merged2)[1], dim(merged2.noNA)[1], dim(train)[1]))
+
+# Observation count of the last two merges
+merge.dims2 <- data.frame("Table" = c("App_labels", "Previous + Label_category", "Previous + Subset of Train"), "Join Type" = c("Starting Point", "Left Join", "Left Join"), "Merge Key" = c("Label ID", "Label ID", "App ID"), "Uniqueness" = c("Not Unique", "Unique", "Not Unique"), "Obs Count" = c(dim(app_labels)[1], dim(labelsdat)[1], dim(labeltrain)[1]))
 ```
 ```{r results='asis'}
-kable(merge.dims, caption = "Change in Length of Table") %>%
+kable(merge.dims, caption = "Change in Length of Table for train dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  column_spec(2, width = "12em")
+kable(merge.dims2, caption = "Change in Length of Table for Labeltrain") %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
   column_spec(2, width = "12em")
 ```
 
 ```{r}
 # Device id count
-merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Inner Join", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "Not Unique"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(train$device_id))))
+merge.idcount <- data.frame("Table" = c("Gender_Age", "Previous + Phonebrand", "Previous + Events", "Delete Unneeded Rows", "Previous + AppEvents"), "Join Type" = c("Starting Point", "Left Join", "Left Join", "", "Left Join"), "Merge Key" = c("Device ID", "Device ID", "Device ID", "", "Event ID"), "Uniqueness" = c("Unique", "Unique", "Not Unique", "", "Not Unique"), "Device ID Count" = c(length(unique(gender_age$device_id)), length(unique(merged1$device_id)), length(unique(merged2$device_id)), length(unique(merged2.noNA$device_id)), length(unique(train$device_id))))
+```
+```{r echo=FALSE, eval=FALSE}
+merge.idcount2 <- data.frame("Table" = c("App_labels", "Previous + Label_category", "Previous + Subset of Train"), "Join Type" = c("Starting Point", "Left Join", "Left Join"), "Merge Key" = c("Label ID", "Label ID", "App ID"), "Uniqueness" = c("Not Unique", "Unique", "Not Unique"), "Device ID Count" = c(length(unique(app_labels$app_id)), length(unique(labelsdat$app_id)), length(unique(labeltrain$app_id))))
+```
+```{r}
+merge.idcount3 <- data.frame("Table" = c("App_labels", "Previous + Label_category", "Previous + Subset of Train"), "Join Type" = c("Starting Point", "Left Join", "Left Join"), "Merge Key" = c("Label ID", "Label ID", "App ID"), "Uniqueness" = c("Not Unique", "Unique", "Not Unique"), "Device ID Count" = c("NA", "NA", length(unique(labeltrain$device_id))))
 ```
 ```{r results='asis'}
-kable(merge.idcount, caption = "Change in Device ID Count") %>%
+kable(merge.idcount, caption = "Change in Device ID Count for train dataset") %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
-  column_spec(2, width = "12em")
-```
-
-```{r}
-# To check if we lose any observations that have phonebrand info but no events info
-test<-merge(x = merged1[is.na(phone_brand) == FALSE], y = events, by = 'device_id')
-
-# How many observations with phonebrand data?
-dim(merged1[is.na(phone_brand)==FALSE])
-
-# How many observations are left after the second merge?
-test1 <- test %>%
-distinct(device_id)
-dim(test1)
-
-dim(merged1[is.na(phone_brand)==FALSE])-dim(test1)
-```
-We lost 336 observations
-
-To put them back in.
-```{r eval=FALSE}
-lostobs <- merged1[is.na(phone_brand)==FALSE, as.character.integer64(device_id) != as.character.integer64(test1$device_id), list(device_id)]
-lostobs = NULL
-for (i in 1:144) {
-  if(any(as.character.integer64(merged1[is.na(phone_brand)==FALSE, device_id]) != as.character.integer64(test1$device_id[i]))) {
-    lostobs[i] = as.character.integer64(test1$device_id[i])
-  }
-}
-phonebrand2 <- phonebrand
-phonebrand2$device_id <- as.character.integer64(phonebrand$device_id)
-lostbsdf <- data.frame("device_id" = lostobs)
-merge2lost <- merge(x = lostbsdf, y = phonebrand2, by = 'device_id', all.x = T)
-```
-
-
-
-```{r}
-response <- train[, list(device_id, event_id, app_id)]
-
-labeltrain2 <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain2 <- arrange(labeltrain2, event_id)
-```
+  column_spec(2, width = "9em")
+kable(merge.idcount3, caption = "Device ID Count for labeltrain dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F) %>%
+  column_spec(2, width = "9em")
+    ```
