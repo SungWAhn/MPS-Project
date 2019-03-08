@@ -280,7 +280,8 @@ kable(events[1:6,], caption = 'Events') %>%
 merged2 <- merge(x = merged1, y = events, by = 'device_id', all.x = T)
 ```
 
-Before moving on to the next merge, remove observations where every column except the response columns, $gender$, $age$, and $group$, is missing.
+<mark> Before moving on to the next merge, remove observations where every column except the response columns, $gender$, $age$, and $group$, is missing. </mark>
+
 ```{r}
 merged2.noNA <- merged2[is.na(merged2$phone_brand)==FALSE | is.na(merged2$event_id)==FALSE]
 ```
@@ -350,7 +351,11 @@ The result
 kable(labeltrain[1:10,], caption = 'Subset of Train + Labelsdat') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-
+Save dataset
+```{r eval=FALSE}
+fwrite(labeltrain, "labeltrain.csv")
+fwrite(labelsdat, "labelsdat.csv")
+```
 ```{r echo=FALSE, eval=FALSE}
 response <- train[, list(device_id, gender, age, group, app_id)]
 ```
