@@ -32,6 +32,7 @@ library(ggmap)
 library(plotly)
 library(kableExtra)
 library(readxl)
+
 ```
 ```{r echo=FALSE}
 options(kableExtra.latex.load_packages = FALSE)
@@ -94,6 +95,54 @@ dim(train[is.na(device_id) | device_id == ""])
 dim(train[is.na(gender) | gender == ""])
 dim(train[is.na(age) | age == ""])
 dim(train[is.na(group) | group == ""])
+```
+
+#### Relationship of Gender and Age with Event_id and Device_id
+```{r fig.width=13}
+train2 <- train
+require(data.table)
+setDT(train2)[, count := uniqueN(event_id), by = device_id]
+count_event = train2[, list(device_id, group,count)]
+count_event2 = unique(count_event)  # length 23309
+
+grp <- c('F23-','F24-26','F27-28','F29-32','F33-42','F43+','M22-','M23-26','M27-28','M29-31','M32-38','M39+')
+len <- length(grp)
+grp_num <- rep(0, len)
+grp_sum <- rep(0, len)
+grp_mean <- rep(0, len)
+grp_median <- rep(0, len)
+grp_max <- rep(0, len)
+grp_min <- rep(0, len)
+
+for (i in 1:len){
+  thisgroup <- count_event2[group==grp[i]]
+  grp_num[i] <- dim(thisgroup)[1]
+  grp_sum[i] <- sum(thisgroup$count)
+  grp_mean[i] <- mean(thisgroup$count)
+  grp_median[i] <- median(thisgroup$count)
+  grp_max[i] <- max(thisgroup$count)
+  grp_min[i] <- min(thisgroup$count)
+}
+
+grp_event <- data.frame('group'=grp,'number'=grp_num,'sum'=grp_sum,'mean'=grp_mean,'median'=grp_median,
+                        'max'=grp_max,'min'=grp_min)
+```
+
+```{r}
+#the same as dataset grp_event
+test=ddply(count_event2,"group",summarise,n=length(device_id),sum=sum(count),mean=mean(count),median=median(count),max=max(count),min=min(count))
+```
+
+```{r results='asis'}
+grp_event %>%
+  kable(escape = F, caption = 'Events') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+
+```{r}
+barplot(grp_sum,names.arg=grp, las=2, xlab = 'Group', main = 'Event Distribution by Group')
+barplot(grp_num,names.arg=grp, las=2, xlab = 'Group', main = 'Unique Device ID by Group')
+barplot(grp_mean,names.arg=grp, las=2, xlab = 'Group', main = 'Mean Event Count by Group')
 ```
 
 ### Univariate Exploratory Analysis
@@ -310,74 +359,8 @@ phonebrandmf <- train %>%
   select(group, mf, phone_brand)
 ```
 
-```{r}
-groupgendercts <- train %>%
-  filter(phone_brand != "") %>%
-  mutate(agecat = case_when(age <= 23 ~ "23-",
-                            age > 23 & age <= 26 ~ "24-26",
-                            age > 26 & age <= 28 ~ "27-28",
-                            age > 28 & age <= 32 ~ "29-32",
-                            age > 32 & age <= 42 ~ "33-42",
-                            age > 42 ~ "43+")) %>%
-  group_by(agecat, gender, phone_brand) %>%
-  distinct(device_id)
-
-```
-```{r fig.width=11, fig.align='center', echo = FALSE, eval=FALSE}
-p <- ggplot(data=groupgendercts) +
-    geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender))
-ggplotly(p)
-```
-```{r fig.width=11, fig.height=7, fig.align='center'}
-z <- ggplot(data=groupgendercts) +
-  geom_mosaic(aes(x=product(phone_brand, agecat), conds=product(gender), fill = gender)) +
-  facet_wrap(~ gender) +
-  labs(x = 'Phone Brands', y = 'Age', title = 'Phone Brand by Age and Gender')
-ggplotly(z)
-```
-
-#### Relationship of Gender and Age with Event_id and Device_id
-```{r fig.width=13}
-train2 <- train
-require(data.table)
-setDT(train2)[, count := uniqueN(event_id), by = device_id]
-count_event = train2[, list(device_id, group,count)]
-count_event2 = unique(count_event)  # length 23309
 
 
-
-
-grp <- c('F23-','F24-26','F27-28','F29-32','F33-42','F43+','M22-','M23-26','M27-28','M29-31','M32-38','M39+')
-len <- length(grp)
-grp_num <- rep(0, len)
-grp_sum <- rep(0, len)
-grp_mean <- rep(0, len)
-grp_median <- rep(0, len)
-grp_max <- rep(0, len)
-grp_min <- rep(0, len)
-for (i in 1:len){
-  thisgroup <- count_event2[group==grp[i]]
-  grp_num[i] <- dim(thisgroup)[1]
-  grp_sum[i] <- sum(thisgroup$count)
-  grp_mean[i] <- mean(thisgroup$count)
-  grp_median[i] <- median(thisgroup$count)
-  grp_max[i] <- max(thisgroup$count)
-  grp_min[i] <- min(thisgroup$count)
-}
-
-grp_event <- data.frame('group'=grp,'number'=grp_num,'sum'=grp_sum,'mean'=grp_mean,'median'=grp_median,
-                        'max'=grp_max,'min'=grp_min)
-```
-```{r results='asis'}
-grp_event %>%
-  kable(escape = F, caption = 'Events') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
-```
-```{r}
-barplot(grp_sum,names.arg=grp, las=2, xlab = 'Group', main = 'Event Distribution by Group')
-barplot(grp_num,names.arg=grp, las=2, xlab = 'Group', main = 'Unique Device ID by Group')
-barplot(grp_mean,names.arg=grp, las=2, xlab = 'Group', main = 'Mean Event Count by Group')
-```
 
 #### Relationship of App Usage (event_id not unique) with Gender & Age
 ```{r}
@@ -435,7 +418,9 @@ groupgendercts <- train[,list(gender, age, agecat = case_when(age <= 23 ~ "23-",
                             age > 32 & age <= 42 ~ "33-42",
                             age > 42 ~ "43+"))]
 
+
 ggplot(data = groupgendercts) +
   geom_mosaic(aes(x = product(gender, agecat), fill = gender)) +
   labs(x = "Age", y = "Gender", title = "App Usage by Age and Gender")
 ```
+
