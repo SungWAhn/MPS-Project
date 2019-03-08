@@ -22,8 +22,8 @@ In this document, go over how we cleaned and merged the 6 datasets:
 - events.csv
 - app_events.csv
 - phone_brand_device_model.csv
--label_categories.csv
--app_labels.csv
+- label_categories.csv
+- app_labels.csv
 
 Read in libraries
 ```{r warning=FALSE, message=FALSE}
@@ -37,7 +37,7 @@ library(tidyverse)
 library(plyr)
 library(kableExtra)
 ```
-```{r echo=FALSE}
+```{r echo=FALSE, eval=FALSE}
 options(kableExtra.latex.load_packages = FALSE)
 knit_hooks$set(document = function(x) {
   sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
@@ -62,8 +62,8 @@ phonebrand <- read_csv('phone_brand_device_model.csv', locale = locale(encoding 
 phonebrand$device_id <- as.character(phonebrand$device_id)
 ```
 
-- The id columns, like app_id and device_id are converted to character type for efficiency
-- There is an issue with R not recognizing Chinese characters in the phone_brand_device_model file. Change the locale setting in read_csv to recognize Chinese characters. This didn't quite work, so we translated all columns with Chinese to English instead.
+- The id columns like app_id and device_id are converted to character type for efficiency
+- There is an issue with R not recognizing Chinese characters in the phone_brand_device_model file. Change the locale setting in read_csv to recognize Chinese characters. Below, we also translated all columns with Chinese to English for easier analysis.
 
 ## Data Cleaning
 
@@ -105,27 +105,25 @@ Now check for any rows where Chinese characters are still left. If there are no 
 leftoversbr <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$phone_brand) == FALSE), ]
 leftoversbr
 
-leftoversmod <- phonebrand[which(grepl("[[:alpha:]]", phonebrand$device_model) == FALSE), ]
+leftoversmod <- phonebrand[which(grepl("[[:alnum:]]", phonebrand$device_model) == FALSE), ]
 leftoversmod
 
 ```
 
-
-- Use 
-
 ## Merging
-Before merging the datasets, look at the properties of the datasets. Determine which columns are unique and which have duplicates.
-
 
 **Main Points:**
+Before merging the datasets, determine which columns are unique and which have duplicates.
 
-- App_events: app_id and event_id not unique
-- events: **unique** event_id and nonunique device_id
-- app_labels: app_id and label_id not unique
-- phonebrand: device_id not unique, but these duplicates have exactly same information
-- gender_age: **unique** device_id
+- events: **Unique** event_id and nonunique device_id. I.e. Every event_id is unique, but multiple events_ids could have same device_id.
+- App_events: App_id and event_id not unique. I.e. Single event_id can have multiple app_ids associated. Multiple event_ids can have same app_ids.
+- app_labels: App_id and label_id not unique. I.e. App_ids can be categorized under multiple label_ids, and the same label_ids are used multiple times for different app_ids
+- phonebrand: Device_id not unique, but these duplicates have exactly same information
+- gender_age: **Unique** device_id.
 
-This means we can merge 
+
+
+
 
 ### events dataset
 ```{r}
@@ -155,7 +153,7 @@ kable(app_events[event_id == 568,][1:10], caption = 'Multiple Apps Used in One E
 kable(app_events[app_id == '6284164581582112235',][1:10], caption = 'Same Apps are used in Multiple Events') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-For every event_id, there are multiple app_ids associated. App_ids are not unique either. This dataset has no unique index.
+For every event_id, there are multiple app_ids associated. Same app_ids can be associated with different event_id. This dataset has no unique index.
 
 ### app_labels
 ```{r}
@@ -172,7 +170,7 @@ kable(app_labels[app_id==app_labels[[4, 1]],][1:10], caption = 'Apps Are Under M
 kable(app_labels[label_id==app_labels[[5, 2]],][1:10], caption = 'Multiple Apps Are Under Same Categories') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-Apps can be categorized under multiple label_ids, and many apps and the same labels are used multiple times for different apps. No unique index.
+App_ids can be categorized under multiple label_ids, and the same label_ids are used multiple times for different app_ids. No unique index.
 
 ### label_category
 ```{r}
@@ -186,7 +184,7 @@ dim(labelcategory[which(duplicated(labelcategory$`sub-category`) == T),])
 kable(labelcategory[`sub-category`=="Medical"], caption = 'Some Label_id have same sub-category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 
-kable(labelcategory[category=="game"], caption = 'Many Label_id have same category') %>%
+kable(labelcategory[category=="game"][1:10], caption = 'Many Label_id have same category') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 Label_id is unique. The text descriptions are not unique, so multiple label_ids can have the same text descriptions.
@@ -209,7 +207,7 @@ Looking at the examples, looks like the duplicates are the exact same individual
 # Find device ids that are repeated
 phonebrand2 <- phonebrand %>%
   group_by(device_id) %>%
-  summarise(device_id.count = n()) %>%
+  dplyr::summarise(device_id.count = n()) %>%
   filter(device_id.count > 2) %>%
   arrange(device_id)
 phonebrand2
@@ -296,6 +294,13 @@ The result
 ```{r results='asis'}
 kable(train[1:6,], caption = "Third Merge") %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+
+```{r}
+merged1a <- merge(x = gender_age, y = events, by = 'device_id', all.x = T)
+merged2a <- merge(x = merged1a, y = app_events, by = 'event_id', all.x = T)
+traina <- merge(x = merged2a, y = setDT(uniquephones), by = 'device_id', all.x = T)
+traina.noNA <- merged2a[is.na(traina$phone_brand)==FALSE | is.na(traina$event_id)==FALSE]
 ```
 
 There are still 2 datasets left pertaining to app descriptions
