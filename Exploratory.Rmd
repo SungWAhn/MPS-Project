@@ -1,7 +1,7 @@
 ---
-title: "MPS Project"
+title: "MPS Project -- Exploratory Analysis"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
-date: "March 4, 2019"
+date: "March 8, 2019"
 output: 
   html_document:
     highlight: pygments
@@ -30,6 +30,8 @@ library(ggmap)
 library(plotly)
 library(kableExtra)
 library(readxl)
+```
+```{r echo=FALSE}
 options(kableExtra.latex.load_packages = FALSE)
 knit_hooks$set(document = function(x) {
   sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
@@ -40,13 +42,8 @@ knit_hooks$set(document = function(x) {
 ```{r}
 train <- fread("train.csv", header = T)
 setDT(train[,-1])
-```
-
-```{r}
-# Plain read.csv can take a while. fread from data.table library is much more efficient
-app_labels <- fread('app_labels.csv', header = T)
-labelcategory <- fread('label_standardized categories.csv', header = T)
-labelsdat <- merge(x = app_labels, y = labelcategory, by = 'label_id', all.x = T)
+labelsdat <- fread("labelsdat.csv", header = T)
+labeltrain <- fread("labeltrain.csv", header = T)
 ```
 
 ## Exploratory Analysis
@@ -100,32 +97,75 @@ dim(train[is.na(group) | group == ""])
 ### Univariate Exploratory Analysis
 #### Gender Distribution
 ```{r}
-ggplot(data=train,aes(x=gender,fill=gender))+
-  geom_bar(stat="count")+
-  ggtitle("Gender Distribution")
+genderbyevent <- train %>%
+  group_by(gender) %>%
+  dplyr::summarise(n= n()) %>%
+  mutate(percent = n/sum(n))
+
+ggplot(data=genderbyevent,aes(x=gender, y = percent, fill=gender))+
+  geom_bar(stat="identity")+
+  ggtitle("Gender Distribution by Event Count")
 ```
+```{r}
+genderbydevice <- train %>%
+  select(device_id, gender) %>%
+  distinct(device_id, .keep_all = T) %>%
+  group_by(gender) %>%
+  dplyr::summarise(n= n()) %>%
+  mutate(percent = n/sum(n))
+
+ggplot(data=genderbydevice,aes(x=gender, y = percent, fill=gender))+
+  geom_bar(stat="identity")+
+  ggtitle("Gender Distribution by Device Count")
+```
+There are more males than females in the data.  Can also see that male counterparts use their devices more frequently since the distribution is more skewed in the by event graph.
+
 
 #### Age-Gender Distribution
 ```{r warning=FALSE}
-ggplot(data=train,aes(x = age,fill = gender, color = gender))+
+ggplot(data = train, aes(x = age,fill = gender, color = gender))+
   geom_histogram(stat = "count",alpha = .5 ,position = "identity")+
-  ggtitle("Age-Gender Distribution")
+  ggtitle("Age-Gender Distribution by Event Count")
+
+agebydevice <- train %>%
+  select(device_id, gender, age) %>%
+  distinct(device_id, .keep_all = T)
+
+ggplot(data = agebydevice, aes(x = age, fill = gender, color = gender)) +
+  geom_histogram(stat = "count",alpha = .5 ,position = "identity")+
+  ggtitle("Age-Gender Distribution by Device Count")
 ```
+Both charts show a right skewed distribution. Would this be a problem for prdictive modeling?
+
 
 #### Group Distribution
 ```{r}
 ggplot(data=train,aes(x=group,fill=gender))+
   geom_bar(stat="count")+
-  ggtitle("Group Distribution")
+  ggtitle("Group Distribution by Event")
+
+groupbydevice <- train %>%
+  select(device_id, gender, group) %>%
+  distinct(device_id, .keep_all = T)
+
+ggplot(data=groupbydevice,aes(x=group,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Group Distribution by Device")
 ```
 
 #### Is_Active Distribution
 ```{r}
-ggplot(data=train,aes(x=factor(is_active)))+
-  geom_bar(stat="count",fill="steelblue")+
-  ggtitle("Is_Active Distribution")+
+isactiveperc <- train %>%
+  group_by(is_active) %>%
+  dplyr::summarise(n= n()) %>%
+  mutate(percent = n/sum(n))
+
+ggplot(data=isactiveperc,aes(x=factor(is_active), y = percent))+
+  geom_bar(stat="identity", fill="steelblue")+
+  ggtitle("Is_Active Count")+
   labs(x = "is_active", y = "Count")
 ```
+
 
 #### Phone Brand Distribution
 ```{r}
