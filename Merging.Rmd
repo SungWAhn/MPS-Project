@@ -334,7 +334,7 @@ kable(labelsdat[1:10,], caption = 'App_labels + Label_category') %>%
 ```
 Try merging a few columns from the train dataset with the labelsdat dataset.
 ```{r}
-response <- train[, list(device_id, event_id, app_id)]
+response <- train[, list(device_id, gender, age, group, app_id)]
 ```
 ```{r results='asis'}
 kable(response[1:10,], caption = 'Subset of Train Dataset') %>%
@@ -342,10 +342,13 @@ kable(response[1:10,], caption = 'Subset of Train Dataset') %>%
 ```
 Left join subset of train with Labelsdat by App_id. Call this labeltrain
 ```{r}
-labeltrain <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain <- arrange(labeltrain, event_id)
-```
+uniquelabels <- labelsdat %>%
+  arrange(app_id) %>%
+  group_by(app_id, category) %>%
+  distinct(category)
 
+labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
+```
 The result
 ```{r results='asis'}
 kable(labeltrain[1:10,], caption = 'Subset of Train + Labelsdat') %>%
