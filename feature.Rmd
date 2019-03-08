@@ -237,3 +237,11 @@ finaltable <- list(m, category_feature, timestamp.count, feature) %>% reduce(ful
 brandmodel <- train[,list(device_id, phone_brand, device_model)]
 finaltable <- merge(x = finaltable, y = unique(brandmodel), by = "device_id")
 ```
+
+## Validation
+```{r}
+set.seed(1)
+sample <- sample.int(n=nrow(finaltable), size = floor(.8*nrow(finaltable)), replace = F)
+validation <- finaltable[-sample,]
+training <- finaltable[sample,]
+```
