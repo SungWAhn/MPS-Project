@@ -45,6 +45,7 @@ train <- fread("train.csv", header = T, integer64 = "character")
 setDT(train[,-1])
 labelsdat <- fread("labelsdat.csv", header = T, integer64 = "character")
 labeltrain <- fread("labeltrain.csv", header = T, integer64 = "character")
+gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character")
 ```
 
 ```{r}
@@ -73,14 +74,6 @@ sum.apps.bycat <- labeltrain %>%
 sum.isactive.bycat$appcount <- sum.apps.bycat$count
 sum.isactive.bycat <- sum.isactive.bycat %>%
   mutate(ratio = count/appcount)
-
-feature = NULL
-
-for (i in 1:length(deviceid)) {
-  if(sum.isactive.bycat$device_id[i] == deviceid[i] & sum.isactive.bycat$category == 'business') {
-    feature[i]
-  }
-}
 
 feature <- sum.isactive.bycat %>%
   select(-one_of("is_active", "count", "appcount")) %>%
@@ -234,8 +227,10 @@ category_feature <- data.frame(xtabs(~device_id + category, data = labeltrain)) 
 
 ```{r}
 finaltable <- list(m, category_feature, timestamp.count, feature) %>% reduce(full_join, by = "device_id")
+finaltable <- merge(x = finaltable, y = gender_age[,list(device_id, group)], by = "device_id", all.x = T)
 brandmodel <- train[,list(device_id, phone_brand, device_model)]
 finaltable <- merge(x = finaltable, y = unique(brandmodel), by = "device_id")
+finaltable$group <- as.factor(finaltable$group)
 ```
 
 ## Validation
@@ -244,4 +239,19 @@ set.seed(1)
 sample <- sample.int(n=nrow(finaltable), size = floor(.8*nrow(finaltable)), replace = F)
 validation <- finaltable[-sample,]
 training <- finaltable[sample,]
+```
+
+```{r}
+fwrite(validation, "validation.csv")
+fwrite(training, "training.csv")
+```
+
+```{r}
+train.impute <- rfImpute(group~. , data=training)
+train.rf <- randomForest(group~. , data=training)
+len = dim(training)[2]
+for (i in 1:length(len)){
+  print(class(training[,i]))
+}
+model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action = na.omit)
 ```
