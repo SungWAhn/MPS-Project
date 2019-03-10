@@ -234,7 +234,7 @@ ggplot(data = labelcount, aes(x = reorder(category,-count), y=count, fill = coun
 
 
 #### Map of the location data
-```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE}
+```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE, eval=FALSE}
 locations <- train %>%
   select(longitude, latitude) %>%
   filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
