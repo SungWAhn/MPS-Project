@@ -16,7 +16,18 @@ body{ /* Normal  */
 
 </style>
 
+Create a matrix with one row for every device_id. Created 67 different features:
 
+- Count of how many unique events occurred in the AM or in the PM (2 predictors total)
+- Count for how many unique events a device_id had between April 30 - May 8 the event occurred (9 predictors total)
+- Count for how many unique events a device_id had on weekdays and on weekends (2 predictors total)
+- Count of number of events total (1 predictor total)
+- Count of how many unique apps a device_id used in each app category (24 predictors total, for each category)
+- average longitude and latitude (2 predictors total)
+- Count of unique apps used (1 predictor total)
+- Categorical variable for device model and phone brand (2 predictors)
+- Ratio of the number of is_active to number of unique apps for each app category (23 predictors total)
+- Response variable group (1 column)
 
 ## Import dataset
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
@@ -47,6 +58,7 @@ labeltrain <- fread("labeltrain.csv", header = T, integer64 = "character")
 gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character")
 ```
 
+Is active percent for each 
 ```{r}
 response <- train[, list(device_id, event_id, app_id, is_active)]
 uniquelabels <- labelsdat %>%
@@ -176,11 +188,6 @@ weekday <- apply(merged[,4:8], 1, sum)
 
 # append these two columns to merged dataset
 date.count <- cbind(merged, weekend, weekday)
-
-
-
-
-
 
 
 
