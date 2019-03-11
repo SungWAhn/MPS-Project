@@ -340,15 +340,18 @@ response <- train[, list(device_id, event_id, app_id)]
 kable(response[1:10,], caption = 'Subset of Train Dataset') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
-Left join subset of train with Labelsdat by App_id. Call this labeltrain
+Left join subset of train with Labelsdat by App_id. Call this labeltrain. In labelsdat, each app_id can have repeated categories. Before merging, filter the labelsdat dataset so that each app_id has a unique list of categories.
 ```{r}
-labeltrain <- merge(x = response, y = labelsdat, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain <- arrange(labeltrain, event_id)
-```
+uniquelabels <- labelsdat %>%
+  arrange(app_id) %>%
+  group_by(app_id, category) %>%
+  distinct(category)
 
+labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
+```
 The result
 ```{r results='asis'}
-kable(labeltrain[1:10,], caption = 'Subset of Train + Labelsdat') %>%
+kable(labeltrain[is.na(app_id) == FALSE,][1:10,], caption = 'Subset of Train + Labelsdat: Labeltrain') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
 Save dataset
@@ -356,6 +359,7 @@ Save dataset
 fwrite(labeltrain, "labeltrain.csv")
 fwrite(labelsdat, "labelsdat.csv")
 ```
+
 ```{r echo=FALSE, eval=FALSE}
 response <- train[, list(device_id, gender, age, group, app_id)]
 ```

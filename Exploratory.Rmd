@@ -29,6 +29,7 @@ library(tidyverse)
 library(plyr)
 library(ggmosaic)
 library(ggmap)
+library(scales)
 library(plotly)
 library(kableExtra)
 library(readxl)
@@ -47,6 +48,7 @@ train <- fread("train.csv", header = T)
 setDT(train[,-1])
 labelsdat <- fread("labelsdat.csv", header = T)
 labeltrain <- fread("labeltrain.csv", header = T)
+uniquelabels <- fread("uniquelabels.csv", header = T)
 ```
 
 ## Exploratory Analysis
@@ -56,10 +58,13 @@ labeltrain <- fread("labeltrain.csv", header = T)
 #### Location Data
 ```{r}
 dim(train[is.na(longitude) | is.na(latitude) | longitude == "" | latitude == ""])
+dim(train[is.na(longitude) | is.na(latitude) | longitude == "" | latitude ==
+            ""])[1]/dim(train)[1]*100
 
-inva_locations<-sum(train$longitude == 1 | train$longitude ==0 | train$latitude ==1 | train$latitude ==0)/length(train$longitude)
+inva_locations<-dim(train[(longitude == 1 & latitude ==0) | (longitude ==0 & latitude ==1) | (longitude ==1 & latitude ==1) | (longitude ==0 & latitude ==0)])[1]/length(train$longitude)
+inva_locations
 ```
-No missing data, but 58% of the location data is still invalid.
+There are 332 missing observations which is only .0026%. Another 58% of the location data is invalid since the longitude and latitude take values of 0 or 1.
 
 #### Phone Brand and Model Data
 ```{r}
@@ -87,17 +92,23 @@ dim(train[is.na(app_id)])[1]/dim(train)[1]*100
 ```
 5.11% missing in app_id
 
-#### The rest: no missing values
 ```{r}
 dim(train[is.na(timestamp) | timestamp == ""])
+dim(train[is.na(timestamp) | timestamp == ""])[1]/dim(train)[1]*100
 dim(train[is.na(event_id) | event_id == ""])
+dim(train[is.na(event_id) | event_id == ""])[1]/dim(train)[1]*100
+```
+There are 332 missing observations in both timestamp and event_id.
+
+#### The rest: no missing values
+```{r}
 dim(train[is.na(device_id) | device_id == ""])
 dim(train[is.na(gender) | gender == ""])
 dim(train[is.na(age) | age == ""])
 dim(train[is.na(group) | group == ""])
 ```
 
-#### Relationship of Gender and Age with Event_id and Device_id
+### Dataset Overview by Event ID Count and Device ID Count
 ```{r fig.width=13}
 train2 <- train
 require(data.table)
@@ -142,9 +153,10 @@ test=ddply(count_event2,"group",summarise,n=length(device_id),sum=sum(count),mea
 
 ```{r results='asis'}
 grp_event %>%
-  kable(escape = F, caption = 'Events') %>%
+  kable(escape = F, caption = 'Event and Device ID Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
+The mean is generally much higher than the median, suggesting a strong right skewed distribution. Both female and male categories show an upward trend in the mean and median number of events as the age increases. Males have more events compared to females.
 
 ```{r}
 ggplot(data=grp_event2,aes(x=group,y=num_percent,fill=gender))+
@@ -168,6 +180,8 @@ ggplot(data=grp_event2,aes(x=group,y=mean,fill=gender))+
   ylab('count')
 ```
 
+
+
 ### Univariate Exploratory Analysis
 #### Gender Distribution
 ```{r}
@@ -178,6 +192,7 @@ genderbyevent <- train %>%
 
 ggplot(data=genderbyevent,aes(x=gender, y = percent, fill=gender))+
   geom_bar(stat="identity")+
+  scale_y_continuous(labels = percent) +
   ggtitle("Gender Distribution by Event Count")
 ```
 ```{r}
@@ -190,6 +205,7 @@ genderbydevice <- train %>%
 
 ggplot(data=genderbydevice,aes(x=gender, y = percent, fill=gender))+
   geom_bar(stat="identity")+
+  scale_y_continuous(labels = percent) +
   ggtitle("Gender Distribution by Device Count")
 ```
 There are more males than females in the data.  Can also see that male counterparts use their devices more frequently since the distribution is more skewed in the by event graph.
@@ -209,7 +225,7 @@ ggplot(data = agebydevice, aes(x = age, fill = gender, color = gender)) +
   geom_histogram(stat = "count",alpha = .5 ,position = "identity")+
   ggtitle("Age-Gender Distribution by Device Count")
 ```
-Both charts show a right skewed distribution. Would this be a problem for prdictive modeling?
+Both charts show a right skewed distribution as mentioned above.
 
 
 #### Group Distribution
@@ -232,7 +248,10 @@ ggplot(data=groupbyevent,aes(x=group,fill=gender))+
 #group_device
 groupbydevice <- train %>%
   select(device_id, gender, group) %>%
-  distinct(device_id, .keep_all = T) 
+  distinct(device_id, .keep_all = T) %>%
+  group_by(gender, group) %>%
+  dplyr::summarise(n= n()) %>%
+  mutate(percent = n/sum(n))  
 
 #group count by device
 ggplot(data=groupbydevice,aes(x=group,fill=gender))+
@@ -255,6 +274,7 @@ isactiveperc <- train %>%
 
 ggplot(data=isactiveperc,aes(x=factor(is_active), y = percent))+
   geom_bar(stat="identity", fill="steelblue")+
+  scale_y_continuous(labels = percent) +
   ggtitle("Is_Active Count")+
   labs(x = "is_active", y = "Count")
 ```
@@ -300,16 +320,6 @@ ggplot(data = phone_count2[2:21,], aes(x = reorder(phone_brand, -count), y = cou
 
 #### App category counts
 ```{r fig.width=17, fig.height=8}
-
-response <- train[, list(device_id, gender, age, group, app_id)]
-
-uniquelabels <- labelsdat %>%
-  arrange(app_id) %>%
-  group_by(app_id, category) %>%
-  distinct(category)
-
-labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
-
 # Find label count
 labelcount <- uniquelabels %>%
   group_by(category) %>%
@@ -393,6 +403,7 @@ kable(group_phone_count, caption = 'Phone Brands By Group') %>%
   group_rows("M32-38", 68, 77) %>%
   group_rows("M39+", 78, 85)
 ```
+As shown in missing data section, a majority of observations do not have phone brand information, potentially invalidating the usefulness of this predictor.
 
 ```{r echo=FALSE}
 phonebrandmf <- train %>%
@@ -437,6 +448,7 @@ groupcts2 %>%
 kable(escape = F, caption = 'App Usage Count by Group') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
 ```
+Counting all event_ids instead of only unique event_ids will indicate 
 
 Visualization App Usage
 ```{r}
@@ -464,3 +476,4 @@ ggplot(data = groupgendercts) +
   labs(x = "Age", y = "Gender", title = "App Usage by Age and Gender")
 ```
 
+Area chart where larger rectangles represent a larger proportion of total app usage
