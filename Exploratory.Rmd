@@ -134,8 +134,15 @@ for (i in 1:len){
   grp_min[i] <- min(thisgroup$count)
 }
 
-grp_event <- data.frame('group'=grp,'Device ID Count'=grp_num,'Event ID Count'=grp_sum,'Mean Event ID Count'=grp_mean,'Median Event ID Count'=grp_median,
-                        'Max'=grp_max,'min'=grp_min)
+grp_event <- data.frame('group'=grp,'number'=grp_num,'sum'=grp_sum,'mean'=grp_mean,'median'=grp_median,
+                        'max'=grp_max,'min'=grp_min)
+
+gender <- c(rep('Female', 6),rep('Male', 6))
+num_percent <- grp_event$number/sum(grp_event$number)
+num_percent <- signif(num_percent, digits = 3)
+sum_percent <- grp_event$sum/sum(grp_event$sum)
+sum_percent <- signif(sum_percent, digits = 3)
+grp_event2 <- cbind(gender, grp_event, num_percent, sum_percent)
 ```
 
 ```{r}
@@ -151,9 +158,25 @@ grp_event %>%
 The mean is generally much higher than the median, suggesting a strong right skewed distribution. Both female and male categories show an upward trend in the mean and median number of events as the age increases. Males have more events compared to females.
 
 ```{r}
-barplot(grp_sum,names.arg=grp, las=2, xlab = 'Group', main = 'Event Distribution by Group')
-barplot(grp_num,names.arg=grp, las=2, xlab = 'Group', main = 'Unique Device ID by Group')
-barplot(grp_mean,names.arg=grp, las=2, xlab = 'Group', main = 'Mean Event Count by Group')
+ggplot(data=grp_event2,aes(x=group,y=num_percent,fill=gender))+
+  geom_bar(position='dodge', stat='identity')+
+  geom_text(aes(label=number), vjust=-0.25)+
+  geom_text(aes(label=paste0(num_percent*100,"%")), vjust=1.75,color='white',size=3.2)+
+  ggtitle('Unique Device ID by Group')+
+  ylab('percentage')
+
+ggplot(data=grp_event2,aes(x=group,y=sum_percent,fill=gender))+
+  geom_bar(position='dodge', stat='identity')+
+  geom_text(aes(label=sum), vjust=-0.25, size=3)+
+  geom_text(aes(label=paste0(sum_percent*100,"%")), vjust=1.75,color='white',size=3.2)+
+  ggtitle('Event Distribution by Group')+
+  ylab('percentage')
+
+ggplot(data=grp_event2,aes(x=group,y=mean,fill=gender))+
+  geom_bar(position='dodge', stat='identity')+
+  geom_text(aes(label=round(mean)), vjust=-0.25, size=3.5)+
+  ggtitle('Mean Event Count by Group')+
+  ylab('count')
 ```
 
 
@@ -206,16 +229,22 @@ Both charts show a right skewed distribution as mentioned above.
 
 #### Group Distribution
 ```{r}
+#group_event
 groupbyevent <- train %>%
-  group_by(gender, group) %>%
-  dplyr::summarise(n= n()) %>%
-  mutate(percent = n/sum(n))
+  select(event_id,gender,group)
 
-ggplot(data=groupbyevent,aes(x=group, y=percent, fill=gender))+
-  geom_bar(stat="identity")+
-  scale_y_continuous(labels = percent) +
-  ggtitle("Group Distribution by Event")
+#group count by event
+ggplot(data=groupbyevent,aes(x=group,fill=gender))+
+  geom_bar(stat="count")+
+  ggtitle("Group Distribution by Event-Count")
 
+#group percentange by event
+ggplot(data=groupbyevent,aes(x=group,fill=gender))+
+  geom_bar(aes(y=(..count..)/sum(..count..)))+
+  ggtitle("Group Distribution by Event-Percentage")+
+  labs(y="Percentange")
+
+#group_device
 groupbydevice <- train %>%
   select(device_id, gender, group) %>%
   distinct(device_id, .keep_all = T) %>%
@@ -223,10 +252,16 @@ groupbydevice <- train %>%
   dplyr::summarise(n= n()) %>%
   mutate(percent = n/sum(n))  
 
-ggplot(data=groupbydevice,aes(x=group, y = percent, fill=gender))+
-  geom_bar(stat="identity")+
-  scale_y_continuous(labels = percent) +
+#group count by device
+ggplot(data=groupbydevice,aes(x=group,fill=gender))+
+  geom_bar(stat="count")+
   ggtitle("Group Distribution by Device")
+
+#group percentage by device
+ggplot(data=groupbydevice,aes(x=group,fill=gender))+
+  geom_bar(aes(y=(..count..)/sum(..count..)))+
+  ggtitle("Group Distribution by Device-Percentage")+
+  labs(y="Percentange")
 ```
 
 #### Is_Active Distribution
@@ -375,8 +410,6 @@ phonebrandmf <- train %>%
   filter(phone_brand != "") %>%
   select(group, mf, phone_brand)
 ```
-
-
 
 
 #### Relationship of App Usage (event_id not unique) with Gender & Age
