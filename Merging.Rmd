@@ -358,6 +358,7 @@ Save dataset
 ```{r eval=FALSE}
 fwrite(labeltrain, "labeltrain.csv")
 fwrite(labelsdat, "labelsdat.csv")
+fwrite(uniquelabels, "uniquelabels.csv")
 ```
 
 ```{r echo=FALSE, eval=FALSE}
