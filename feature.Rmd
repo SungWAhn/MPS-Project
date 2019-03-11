@@ -16,6 +16,8 @@ body{ /* Normal  */
 
 </style>
 
+
+
 ## Import dataset
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(knitr)
@@ -52,15 +54,15 @@ uniquelabels <- labelsdat %>%
   group_by(app_id, category) %>%
   distinct(category, .keep_all = T)
 deviceid <- unique(train$device_id)
-labeltrain <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
-labeltrain <- labeltrain[order(device_id)]
+isactivecats <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
+isactivecats <- isactivecats[order(device_id)]
 
-sum.isactive.bycat <- labeltrain %>%
+sum.isactive.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, is_active) %>%
   dplyr::summarise(count = n())
 
-sum.apps.bycat <- labeltrain %>%
+sum.apps.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, app_id) %>%
   distinct(app_id, .keep_all = T) %>%
