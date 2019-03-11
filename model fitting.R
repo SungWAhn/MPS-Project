@@ -8,6 +8,13 @@ fit1 <- naiveBayes(group~., data=training)
 pred1 <- predict(fit1, validation, type='raw')
 summary(pred1)
 #check accuracy
+library(magrittr)
+library(dplyr)
+val<-validation %>%
+group_by(validation$group) %>%
+summarise(n())
+
+summary(predict(fit1, validation))
 #table(pred1, validation$group)
 
 #SVM
