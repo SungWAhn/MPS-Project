@@ -242,16 +242,14 @@ ggplot(data=groupbyevent,aes(x=group,fill=gender))+
 #group percentange by event
 ggplot(data=groupbyevent,aes(x=group,fill=gender))+
   geom_bar(aes(y=(..count..)/sum(..count..)))+
+  scale_y_continuous(labels = percent) +
   ggtitle("Group Distribution by Event-Percentage")+
   labs(y="Percentange")
 
 #group_device
 groupbydevice <- train %>%
   select(device_id, gender, group) %>%
-  distinct(device_id, .keep_all = T) %>%
-  group_by(gender, group) %>%
-  dplyr::summarise(n= n()) %>%
-  mutate(percent = n/sum(n))  
+  distinct(device_id, .keep_all = T)
 
 #group count by device
 ggplot(data=groupbydevice,aes(x=group,fill=gender))+
@@ -261,6 +259,7 @@ ggplot(data=groupbydevice,aes(x=group,fill=gender))+
 #group percentage by device
 ggplot(data=groupbydevice,aes(x=group,fill=gender))+
   geom_bar(aes(y=(..count..)/sum(..count..)))+
+  scale_y_continuous(labels = percent) +
   ggtitle("Group Distribution by Device-Percentage")+
   labs(y="Percentange")
 ```
@@ -335,9 +334,7 @@ ggplot(data = labelcount, aes(x = reorder(category,-count), y=count, fill = coun
   labs(x = 'App Categories', y = 'Count', title = 'App Category Distribution')
 ```
 
-
-#### Map of the location data
-```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE, eval=FALSE}
+```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE, eval=FALSE, echo=FALSE}
 locations <- train %>%
   select(longitude, latitude) %>%
   filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
@@ -348,8 +345,6 @@ map <- get_map(location = box, maptype = 'terrain', source = 'google')
 p <- ggmap(map)
 p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
 ```
-
-Most events occurred in Asia
 
 ### Bivariate Exploratory Analysis
 #### Relationship of Phonebrand with Gender & Age
