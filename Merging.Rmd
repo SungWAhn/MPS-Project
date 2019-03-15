@@ -312,7 +312,7 @@ kable(train[1:6,], caption = "Previous + App_Events") %>%
 
 Save the final train dataset
 ```{r}
-fwrite(train, "train.csv")
+fwrite(train, "train.csv", na="NA")
 ```
 
 There are still 2 datasets left pertaining to app descriptions. Merged separately to keep the train dataset from getting very large.
@@ -356,9 +356,9 @@ kable(labeltrain[is.na(app_id) == FALSE,][1:10,], caption = 'Subset of Train + L
 ```
 Save dataset
 ```{r eval=FALSE}
-fwrite(labeltrain, "labeltrain.csv")
-fwrite(labelsdat, "labelsdat.csv")
-fwrite(uniquelabels, "uniquelabels.csv")
+fwrite(labeltrain, "labeltrain.csv", na="NA")
+fwrite(labelsdat, "labelsdat.csv", na="NA")
+fwrite(uniquelabels, "uniquelabels.csv", na="NA")
 ```
 
 ```{r echo=FALSE, eval=FALSE}

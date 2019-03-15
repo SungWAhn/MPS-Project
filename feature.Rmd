@@ -1,7 +1,7 @@
 ---
 title: "MPS Project -- Feature Engineering"
 author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
-date: "March 8, 2019"
+date: "March 15, 2019"
 output: 
   html_document:
     highlight: pygments
@@ -18,16 +18,18 @@ body{ /* Normal  */
 
 Create a matrix with one row for every device_id. Created 67 different features:
 
-- Count of how many unique events occurred in the AM or in the PM (2 predictors total)
-- Count for how many unique events a device_id had between April 30 - May 8 the event occurred (9 predictors total)
-- Count for how many unique events a device_id had on weekdays and on weekends (2 predictors total)
-- Count of number of events total (1 predictor total)
-- Count of how many unique apps a device_id used in each app category (24 predictors total, for each category)
-- average longitude and latitude (2 predictors total)
+- Count of how many unique events occurred in the AM and in the PM (2 predictors total)
+- Count of how many unique events occurred in each of the days between April 30 - May 8 (9 predictors total, for each day)
+- Count of how many unique events occurred on weekdays and on weekends (2 predictors total)
+- Count of number of events in total (1 predictor total)
+- Count of how many unique apps were used in each app category (24 predictors total, for each category)
+- Average longitude and latitude (2 predictors total)
 - Count of unique apps used (1 predictor total)
 - Categorical variable for device model and phone brand (2 predictors)
-- Ratio of the number of is_active to number of unique apps for each app category (23 predictors total)
-- Response variable group (1 column)
+- In each app category ratio of the count of the nmber of is_active events to number of unique apps used in each app category (23 predictors total)
+
+For App Category $i$:
+$$\frac{\# of isactive in AppCategory_i}{\# of unique apps used in AppCategory_i}$$
 
 ## Import dataset
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
@@ -58,22 +60,34 @@ labeltrain <- fread("labeltrain.csv", header = T, integer64 = "character")
 gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character")
 ```
 
-Is active percent for each 
+Is active ratio for each app category
 ```{r}
+# Subset of the training data
 response <- train[, list(device_id, event_id, app_id, is_active)]
+
+# In the labelsdat dataset, for each app_id delete repeat categories
 uniquelabels <- labelsdat %>%
   arrange(app_id) %>%
   group_by(app_id, category) %>%
   distinct(category, .keep_all = T)
+
+# Vector of all unique device_ids
 deviceid <- unique(train$device_id)
+
+# Merge response with uniquelables
 isactivecats <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
 isactivecats <- isactivecats[order(device_id)]
+```
 
+
+```{r}
+# Only keep observations with is_active=1, count number of is_active in each category
 sum.isactive.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, is_active) %>%
   dplyr::summarise(count = n())
 
+# Count the number of apps used in each category
 sum.apps.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, app_id) %>%
@@ -82,6 +96,7 @@ sum.apps.bycat <- isactivecats %>%
   group_by(device_id, category) %>%
   dplyr::summarise(count = n())
 
+# Calculate the ratios
 sum.isactive.bycat$appcount <- sum.apps.bycat$count
 sum.isactive.bycat <- sum.isactive.bycat %>%
   mutate(ratio = count/appcount)
@@ -90,6 +105,9 @@ feature <- sum.isactive.bycat %>%
   select(-one_of("is_active", "count", "appcount")) %>%
   spread(key = category, value = ratio)
 
+feature[is.na(feature)]=0
+
+# Some device_ids not in the final table: these devices had no is_active cases
 missing <- setdiff(deviceid, feature$device_id)
 nas <- matrix(nrow = 394, ncol = 23)
 missingdata <- cbind(missing, nas)
@@ -238,6 +256,12 @@ brandmodel <- train[,list(device_id, phone_brand, device_model)]
 finaltable <- merge(x = finaltable, y = unique(brandmodel), by = "device_id")
 finaltable$group <- as.factor(finaltable$group)
 ```
+
+```{r}
+table1 <- merge(x = m, y = category_feature, by = "device_id", all.x = T, all.y = T)
+table2 <- merge(x = table1, y = )
+```
+
 
 ## Validation
 ```{r}
