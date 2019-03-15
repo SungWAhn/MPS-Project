@@ -16,7 +16,7 @@ body{ /* Normal  */
 
 </style>
 
-Create a matrix with one row for every device_id. Created 67 different features:
+Create a matrix with one row for every device_id. Created 66 different features:
 
 - Count of how many unique events occurred in the AM and in the PM (2 predictors total)
 - Count of how many unique events occurred in each of the days between April 30 - May 8 (9 predictors total, for each day)
@@ -26,7 +26,7 @@ Create a matrix with one row for every device_id. Created 67 different features:
 - Average longitude and latitude (2 predictors total)
 - Count of unique apps used (1 predictor total)
 - Categorical variable for device model and phone brand (2 predictors)
-- In each app category ratio of the count of the nmber of is_active events to number of unique apps used in each app category (23 predictors total)
+- In each app category, ratio of the count of the number of is_active occurrences to number of unique apps used in that app category (23 predictors total)
 
 For each App Category $i$:
 $$\frac{\text{# of is_active occurrences}}{\text{# of unique apps used}}$$
@@ -66,12 +66,6 @@ Is active ratio for each app category
 # Subset of the training data
 response <- train[, list(device_id, event_id, app_id, is_active)]
 
-# In the labelsdat dataset, for each app_id delete repeat categories
-#uniquelabels <- labelsdat %>%
-#  arrange(app_id) %>%
-#  group_by(app_id, category) %>%
-#  distinct(category, .keep_all = T)
-
 # Vector of all unique device_ids
 deviceid <- unique(train$device_id)
 
@@ -82,7 +76,7 @@ isactivecats <- isactivecats[order(device_id)]
 
 
 ```{r}
-# Only keep observations with is_active=1, count number of is_active in each category
+# Only keep observations with is_active=1, count number of is_active occurrences in each category
 sum.isactive.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, is_active) %>%
@@ -141,6 +135,7 @@ setDT(labeltest)
 m <- merge(x = labeltest, y = test1, by = 'device_id', all.x = T)
 ```
 
+Count for AM/PM, Weekend/Weekday, April 30 - May 8
 ```{r}
 # take a subset of the training data 
 # containing information of event_id, device_id and timestamp
@@ -250,6 +245,7 @@ category_feature <- data.frame(xtabs(~device_id + category, data = labeltrain)) 
   spread(category, Freq)
 ```
 
+Create the final matrix by merging all the features
 ```{r}
 finaltable <- list(m, category_feature, timestamp.count, feature) %>% reduce(full_join, by = "device_id")
 finaltable <- merge(x = finaltable, y = gender_age[,list(device_id, group)], by = "device_id", all.x = T)
@@ -259,14 +255,12 @@ finaltable$group <- as.factor(finaltable$group)
 ```
 
 ```{r}
-table1 <- merge(x = m, y = category_feature, by = "device_id", all.x = T, all.y = T)
-table2 <- merge(x = table1, y = timestamp.count, by = "device_id", all.x = T, all.y = T)
-table3 <- merge(x = table2, y = feature, by = "device_id", all.x = T, all.y = T)
-
+str(finaltable)
+head(finaltable, n = 25)
 ```
+.x categories are for app category counts and .y categories are for the is_active ratios.
 
-
-## Validation
+## Training Validation split
 ```{r}
 set.seed(1)
 sample <- sample.int(n=nrow(finaltable), size = floor(.8*nrow(finaltable)), replace = F)
@@ -279,7 +273,19 @@ fwrite(validation, "validation.csv")
 fwrite(training, "training.csv")
 ```
 
+# Number of Missing/0 Values in training set
 ```{r}
+missing.values <- map(training, ~sum(is.na(.x)))
+zero.values<- map(training, ~(length(.x[which(.x==0)])))
+
+allmissing <- cbind(missing.values, zero.values)
+allmissing
+```
+
+The large number of missing and zero values could pose problems in our analysis. Some predictors could be deleted to prevent multicollinearity; like weekend/weekday.
+
+
+```{r eval=FALSE, echo=FALSE}
 train.impute <- rfImpute(group~. , data=training)
 train.rf <- randomForest(group~. , data=training)
 len = dim(training)[2]
