@@ -28,8 +28,8 @@ Create a matrix with one row for every device_id. Created 67 different features:
 - Categorical variable for device model and phone brand (2 predictors)
 - In each app category ratio of the count of the nmber of is_active events to number of unique apps used in each app category (23 predictors total)
 
-For App Category $i$:
-$$\frac{\# of isactive in AppCategory_i}{\# of unique apps used in AppCategory_i}$$
+For each App Category $i$:
+$$\frac{\text{# of is_active occurrences}}{\text{# of unique apps used}}$$
 
 ## Import dataset
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
@@ -53,11 +53,12 @@ knit_hooks$set(document = function(x) {
 ```
 
 ```{r}
-train <- fread("train.csv", header = T, integer64 = "character")
+train <- fread("train.csv", header = T, integer64 = "character", na.strings = "NA")
 setDT(train[,-1])
-labelsdat <- fread("labelsdat.csv", header = T, integer64 = "character")
-labeltrain <- fread("labeltrain.csv", header = T, integer64 = "character")
-gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character")
+labelsdat <- fread("labelsdat.csv", header = T, integer64 = "character", na.strings = "NA")
+uniquelabels <- fread("uniquelabels.csv", header = T, integer64 = "character", na.strings = "NA")
+labeltrain <- fread("labeltrain.csv", header = T, integer64 = "character", na.strings = "NA")
+gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character", na.strings = "NA")
 ```
 
 Is active ratio for each app category
@@ -66,10 +67,10 @@ Is active ratio for each app category
 response <- train[, list(device_id, event_id, app_id, is_active)]
 
 # In the labelsdat dataset, for each app_id delete repeat categories
-uniquelabels <- labelsdat %>%
-  arrange(app_id) %>%
-  group_by(app_id, category) %>%
-  distinct(category, .keep_all = T)
+#uniquelabels <- labelsdat %>%
+#  arrange(app_id) %>%
+#  group_by(app_id, category) %>%
+#  distinct(category, .keep_all = T)
 
 # Vector of all unique device_ids
 deviceid <- unique(train$device_id)
@@ -124,7 +125,7 @@ test$latitude[test$latitude==0 | test$latitude==1]<-NA
 test1<-test %>%
 select(device_id, longitude, latitude, event_id) %>%
 group_by(device_id) %>%
-summarise(longitude=mean(longitude, na.rm=TRUE), latitude=mean(latitude, na.rm=TRUE), count_event=n_distinct(event_id))
+dplyr::summarise(longitude=mean(longitude, na.rm=TRUE), latitude=mean(latitude, na.rm=TRUE), count_event=n_distinct(event_id))
 
 require(data.table)
 setDT(test1)
@@ -132,7 +133,7 @@ setDT(labeltrain)
 
 labeltest<-labeltrain %>%
 group_by(device_id) %>%
-summarise(n_distinct(app_id))
+dplyr::summarise(n_distinct(app_id))
 
 require(data.table)
 setDT(labeltest)
@@ -259,7 +260,9 @@ finaltable$group <- as.factor(finaltable$group)
 
 ```{r}
 table1 <- merge(x = m, y = category_feature, by = "device_id", all.x = T, all.y = T)
-table2 <- merge(x = table1, y = )
+table2 <- merge(x = table1, y = timestamp.count, by = "device_id", all.x = T, all.y = T)
+table3 <- merge(x = table2, y = feature, by = "device_id", all.x = T, all.y = T)
+
 ```
 
 
