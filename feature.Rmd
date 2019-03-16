@@ -289,3 +289,38 @@ for (i in 1:length(len)){
 }
 model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action = na.omit)
 ```
+
+
+
+
+PCA Analysis
+```{r}
+training <- fread("training.csv", header = T, integer64 = "character")
+# need to change column numbers after adding more features to training dataset
+category.count <- training[, c(1,6:29)]
+category.ratio <- training[, c(1,43:65)]
+category.count <- na.omit(category.count)  # 18629    25
+category.ratio <- na.omit(category.ratio)  # 18594    24
+
+fwrite(category.count, 'category_count.csv')
+fwrite(category.ratio, 'category_ratio.csv')
+
+
+#category.count <- fread("category_count.csv", header = T, integer64 = "character")
+#category.ratio <- fread("category_ratio.csv", header = T, integer64 = "character")
+
+
+# conduct PCA on the two datasets
+count.pca <- prcomp(category.count[,-1], center = TRUE, scale. = TRUE)
+summary(count.pca)   # 11 PCs for cumulative proportion of >90% 
+ratio.pca <- prcomp(category.ratio[,-1], center = TRUE, scale. = TRUE) 
+summary(ratio.pca)   # 15 PCs for cumulative proportion of >90% 
+
+count.reduce <- count.pca$x[,1:11]
+count.reduce <- cbind(category.count$device_id, count.reduce)
+colnames(count.reduce)[1] <- 'device_id'
+ratio.reduce <- ratio.pca$x[,1:15]
+ratio.reduce <- cbind(category.ratio$device_id, ratio.reduce)
+colnames(ratio.reduce)[1] <- 'device_id'
+```
+
