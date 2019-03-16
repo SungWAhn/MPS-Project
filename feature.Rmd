@@ -210,33 +210,28 @@ date.count <- cbind(merged, weekend, weekday)
 temp.time <- chron(times=train2$time)   # note this will take a while
 time.hour <- hours(temp.time)
 
-# separate train2 dataset according to morning/afternoon 
-morning.data <- train2[time.hour < 12,]
-afternoon.data <- train2[time.hour >= 12,]
-# count events per device
-setDT(morning.data)[, count := uniqueN(event_id), by = device_id]
-setDT(afternoon.data)[, count := uniqueN(event_id), by = device_id]
-names(morning.data)[6] <- 'morning'
-names(afternoon.data)[6] <- 'afternoon'
-morning.count <- unique(morning.data[,list(device_id,morning)])
-afternoon.count <- unique(afternoon.data[,list(device_id,afternoon)])
+# count number of unique events for each device in each timechunk of 4 hours
+count.timechunk <- list()
+count.name <- c('count.0_4','count.4_8','count.8_12','count.12_16','count.16_20','count.20_24')
+for (i in 1:6){
+  temp <- train2[time.hour < i*4 & time.hour >= (i-1)*4,]
+  setDT(temp)[, count := uniqueN(event_id), by = device_id]
+  count.timechunk[[i]] <- unique(temp[,list(device_id,count)])
+  names(count.timechunk[[i]])[2] <- count.name[i]
+}
 
-# merge the 2 tables to form a single table of counts
-time.count <- list(morning.count,afternoon.count) %>% reduce(full_join, by = "device_id")
+# merge the 6 tables to form a single table of counts
+time.count <- count.timechunk %>% reduce(full_join, by = "device_id")
 # replace NA values with 0
 time.count[is.na(time.count)] <- 0
-
 
 # check whether merge retrieve back all device id
 length(unique(train2$device_id))   # 23309 
 dim(time.count)   # 23309 rows
 
-
-
-
 # merge date.count and time.count
 timestamp.count <- list(date.count,time.count) %>% reduce(full_join, by = "device_id")
-dim(timestamp.count)    # 23309    14
+dim(timestamp.count)    # 23309 * 18
 ```
 
 App Category count
