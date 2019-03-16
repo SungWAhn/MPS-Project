@@ -87,7 +87,7 @@ sum.apps.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, app_id) %>%
   distinct(app_id, .keep_all = T) %>%
-  dplyr::summarise(count = n()) %>%
+  #dplyr::summarise(count = n()) %>%
   group_by(device_id, category) %>%
   dplyr::summarise(count = n())
 
@@ -257,6 +257,7 @@ finaltable$group <- as.factor(finaltable$group)
 ```{r}
 str(finaltable)
 head(finaltable, n = 25)
+summary(finaltable$group)
 ```
 .x categories are for app category counts and .y categories are for the is_active ratios.
 
@@ -273,7 +274,7 @@ fwrite(validation, "validation.csv")
 fwrite(training, "training.csv")
 ```
 
-# Number of Missing/0 Values in training set
+## Number of Missing/0 Values in training set
 ```{r}
 missing.values <- map(training, ~sum(is.na(.x)))
 zero.values<- map(training, ~(length(.x[which(.x==0)])))
@@ -284,6 +285,48 @@ allmissing
 
 The large number of missing and zero values could pose problems in our analysis. Some predictors could be deleted to prevent multicollinearity; like weekend/weekday.
 
+## Why the number of NA is different
+From the missing table above, we know there are 268 missing observations for the date features. Check that the 268 observations are the same devices across these 9 features.
+```{r}
+# Check that they are the same 268 observations
+d01<-training[which(is.na(training$`2016-05-01`)),]
+d02 <- training[which(is.na(training$`2016-04-30`)),]
+
+setdiff(d01,d02)
+setdiff(d02,d01)
+```
+just comparing 2 of the 9 features, the 268 observations match.
+
+Look up the device_ids with NA values in the train dataset to see why they became missing.
+```{r}
+# 
+datemissing<-train[device_id%in%d01$device_id]
+datemissing
+```
+Looking at the table, we can see that these devices have no recorded events. Without events, there can't be any data of dates an event occurred. For these devices the date features are all set to NA.
+
+Do the same process for app category features and is_active ratio features.
+```{r}
+appcat1 <- training[which(is.na(training$beauty.x)),]
+appcat2 <- training[which(is.na(training$business.x)),]
+setdiff(appcat1,appcat2)
+setdiff(appcat2,appcat1)
+appcatmissing <- train[device_id%in%appcat1$device_id]
+length(unique(appcatmissing$device_id))
+appcatmissing
+```
+In addition to the 268 devices that had no recorded events, the devices that had events but no corresponding app_ids recorded will also be set to NA.
+
+```{r}
+isactive1 <- training[which(is.na(training$beauty.y)),]
+isactive2 <- training[which(is.na(training$business.y)),]
+setdiff(isactive1,isactive2)
+setdiff(isactive2,isactive1)
+isactivemissing <- train[device_id%in%isactive1$device_id]
+length(unique(isactivemissing$device_id))
+isactivemissing
+```
+In addition to those devices that either had no recorded events, or those that had events but no recored app activity, the is_active ratio will also consider as NA those devices that have events and recorded app activity but never had an instance where is_active equalled to 1.
 
 ```{r eval=FALSE, echo=FALSE}
 train.impute <- rfImpute(group~. , data=training)
