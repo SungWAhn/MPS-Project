@@ -304,11 +304,12 @@ category.ratio <- na.omit(category.ratio)  # 18594    24
 
 fwrite(category.count, 'category_count.csv')
 fwrite(category.ratio, 'category_ratio.csv')
+```
 
 
-#category.count <- fread("category_count.csv", header = T, integer64 = "character")
-#category.ratio <- fread("category_ratio.csv", header = T, integer64 = "character")
-
+```{r}
+category.count <- fread("category_count.csv", header = T, integer64 = "character")
+category.ratio <- fread("category_ratio.csv", header = T, integer64 = "character")
 
 # conduct PCA on the two datasets
 count.pca <- prcomp(category.count[,-1], center = TRUE, scale. = TRUE)
