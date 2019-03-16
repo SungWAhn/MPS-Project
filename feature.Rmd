@@ -271,6 +271,10 @@ fwrite(training, "training.csv")
 
 ## Number of Missing/0 Values in training set
 ```{r}
+training<-fread("training.csv", header=T, integer64 = "character")
+validation <- fread("validation.csv", header=T, integer64 = "character")
+```
+```{r}
 missing.values <- map(training, ~sum(is.na(.x)))
 zero.values<- map(training, ~(length(.x[which(.x==0)])))
 
@@ -322,6 +326,17 @@ length(unique(isactivemissing$device_id))
 isactivemissing
 ```
 In addition to those devices that either had no recorded events, or those that had events but no recored app activity, the is_active ratio will also consider as NA those devices that have events and recorded app activity but never had an instance where is_active equalled to 1.
+
+## Remove the 318 Observations with NA values
+
+NA values can be problematic for model building so remove them.
+```{r}
+training.NoNA<- training[is.na(entertainment.y)==FALSE]
+validation.NoNA<-validation[is.na(entertainment.y)==FALSE]
+fwrite(training.NoNA, "training_NoNA.csv")
+fwrite(validation.NoNA, "validation_NoNA.csv")
+```
+
 
 ```{r eval=FALSE, echo=FALSE}
 train.impute <- rfImpute(group~. , data=training)
