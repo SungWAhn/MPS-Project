@@ -419,32 +419,61 @@ model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action 
 PCA Analysis
 ```{r}
 training <- fread("training.csv", header = T, integer64 = "character")
-# need to change column numbers after adding more features to training dataset
-category.count <- training[, c(1,6:29)]
-category.ratio <- training[, c(1,43:65)]
-category.count <- na.omit(category.count)  # 18629    25
-category.ratio <- na.omit(category.ratio)  # 18594    24
+count.train <- training[, c(1,6:29)]
+ratio.train <- training[, c(1,43:65)]
+count.train <- na.omit(count.train)  # 18629    25
+ratio.train <- na.omit(ratio.train)  # 18594    24
 
-fwrite(category.count, 'category_count.csv')
-fwrite(category.ratio, 'category_ratio.csv')
+```{r}
+fwrite(count.train, 'count_train.csv')
+fwrite(ratio.train, 'ratio_train.csv')
+```
+
+```{r}
+count.train <- fread("count_train.csv", header = T, integer64 = "character")
+ratio.train <- fread("ratio_train.csv", header = T, integer64 = "character")
+```
+
+```{r}
+# conduct PCA on the two datasets
+count.pca <- prcomp(count.train[,-1], center = TRUE, scale. = TRUE)
+summary(count.pca)   # 11 PCs for cumulative proportion of >90% 
+ratio.pca <- prcomp(ratio.train[,-1], center = TRUE, scale. = TRUE) 
+summary(ratio.pca)   # 15 PCs for cumulative proportion of >90% 
+
+count.train.pca <- data.frame(device_id = count.train$device_id, count.pca$x[,1:11])
+ratio.train.pca <- data.frame(device_id = ratio.train$device_id, ratio.pca$x[,1:15])
+```
+
+```{r}
+fwrite(count.train.pca, 'count_train_pca.csv')
+fwrite(ratio.train.pca, 'ratio_train_pca.csv')
 ```
 
 
 ```{r}
-category.count <- fread("category_count.csv", header = T, integer64 = "character")
-category.ratio <- fread("category_ratio.csv", header = T, integer64 = "character")
+# test 
+validation <- fread("validation.csv", header = T, integer64 = "character")
+count.test <- validation[, c(1,6:29)]
+ratio.test <- validation[, c(1,43:65)]
+count.test <- na.omit(count.test)  # 4661    25
+ratio.test <- na.omit(ratio.test)  # 4653    24
+```
 
-# conduct PCA on the two datasets
-count.pca <- prcomp(category.count[,-1], center = TRUE, scale. = TRUE)
-summary(count.pca)   # 11 PCs for cumulative proportion of >90% 
-ratio.pca <- prcomp(category.ratio[,-1], center = TRUE, scale. = TRUE) 
-summary(ratio.pca)   # 15 PCs for cumulative proportion of >90% 
+```{r}
+fwrite(count.test, 'count_test.csv')
+fwrite(ratio.test, 'ratio_test.csv')
+```
 
-count.reduce <- count.pca$x[,1:11]
-count.reduce <- cbind(category.count$device_id, count.reduce)
-colnames(count.reduce)[1] <- 'device_id'
-ratio.reduce <- ratio.pca$x[,1:15]
-ratio.reduce <- cbind(category.ratio$device_id, ratio.reduce)
-colnames(ratio.reduce)[1] <- 'device_id'
+```{r}
+count.test.pca <- predict(count.pca, newdata = count.test[,-1])
+count.test.pca <- data.frame(device_id = count.test$device_id, count.test.pca[,1:11])
+ratio.test.pca <- predict(ratio.pca, newdata = ratio.test[,-1])
+ratio.test.pca <- data.frame(device_id = ratio.test$device_id, ratio.test.pca[,1:15])
+```
+
+```{r}
+fwrite(count.test.pca, 'count_test_pca.csv')
+fwrite(ratio.test.pca, 'ratio_test_pca.csv')
 ```
 
