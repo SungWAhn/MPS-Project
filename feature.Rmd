@@ -419,10 +419,11 @@ model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action 
 PCA Analysis
 ```{r}
 training <- fread("training.csv", header = T, integer64 = "character")
-count.train <- training[, c(1,6:29)]
-ratio.train <- training[, c(1,43:65)]
+count.train <- subset(training, select = beauty.x:vehicle.x)
+ratio.train <- subset(training, select = beauty.y:vehicle.y)
 count.train <- na.omit(count.train)  # 18629    25
 ratio.train <- na.omit(ratio.train)  # 18594    24
+```
 
 ```{r}
 fwrite(count.train, 'count_train.csv')
@@ -454,8 +455,8 @@ fwrite(ratio.train.pca, 'ratio_train_pca.csv')
 ```{r}
 # test 
 validation <- fread("validation.csv", header = T, integer64 = "character")
-count.test <- validation[, c(1,6:29)]
-ratio.test <- validation[, c(1,43:65)]
+count.test <- subset(validation, select = beauty.x:vehicle.x)
+ratio.test <- subset(validation, select = beauty.y:vehicle.y)
 count.test <- na.omit(count.test)  # 4661    25
 ratio.test <- na.omit(ratio.test)  # 4653    24
 ```
