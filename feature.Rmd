@@ -32,7 +32,7 @@ For each App Category $i$:
 $$\frac{\text{# of is_active occurrences}}{\text{# of unique apps used}}$$
 
 ## Import dataset
-```{r warning=FALSE, message=FALSE, echo=FALSE}
+```{r warning=FALSE, message=FALSE, error=FALSE}
 library(knitr)
 library(readr)
 library(data.table)
@@ -42,7 +42,10 @@ library(tidyverse)
 library(kableExtra)
 library(readxl)
 library(chron)
-
+```
+```{r}
+versions<-sessionInfo()
+versions
 ```
 ```{r echo=FALSE}
 options(kableExtra.latex.load_packages = FALSE)
@@ -335,6 +338,68 @@ training.NoNA<- training[is.na(entertainment.y)==FALSE]
 validation.NoNA<-validation[is.na(entertainment.y)==FALSE]
 fwrite(training.NoNA, "training_NoNA.csv")
 fwrite(validation.NoNA, "validation_NoNA.csv")
+```
+```{r}
+training.NoNA <- fread("training_NoNA.csv", header = T, integer64 = "character")
+validation.NoNA <- fread("validation_NoNA.csv", header = T, integer64 = "character")
+```
+## Remove multiollinearity
+
+Removed:
+
+- Weekend (correlated with Weekday)
+- Morning (correlated with Afternoon)
+- 2016-05-01 (correlated with the rest of the other dates)
+- beauty.x (correlated with the rest of the app usage count features)
+- beauty.y (correlated with the rest of the is_active ratio features)
+
+Other candidates:
+
+- count_event (This is a sum of the event counts: summing up weekend.weekday or AM/PM will give count_event)
+  - However, deleting Weekend and Morning may resolve this multicollinearity
+- n_distinct(app_id) (This is a sum of unique app usage count in each app category)
+  - However, deleting one feature from the app usage counts may resolve this multicollinearity
+
+```{r}
+# For training
+training.NoNA.NoMultc <- training.NoNA %>%
+# Delete one of weekend/weekday
+  select(-one_of("weekend")) %>%
+# Delete one of morning/afternoon
+  select(-one_of("morning")) %>%
+# Delete one date
+  select(-one_of("2016-05-01")) %>%
+# Delete one app category count
+  select(-one_of("beauty.x")) %>%
+# Delete one is_active ratio
+  select(-one_of("beauty.y"))
+# Delete total event count
+  #select(-one_of("count_event")) %>%
+# Delete total app count
+  #select(-one_of("n_distinct(app_id)"))
+
+# For validation
+validation.NoNA.NoMultc <- validation.NoNA %>%
+# Delete one of weekend/weekday
+  select(-one_of("weekend")) %>%
+# Delete one of morning/afternoon
+  select(-one_of("morning")) %>%
+# Delete one date
+  select(-one_of("2016-05-01")) %>%
+# Delete one app category count
+  select(-one_of("beauty.x")) %>%
+# Delete one is_active ratio
+  select(-one_of("beauty.y"))
+# Delete total event count
+  #select(-one_of("count_event")) %>%
+# Delete total app count
+  #select(-one_of("n_distinct(app_id)"))
+```
+
+Save the new datasets
+```{r}
+fwrite(training.NoNA.NoMultc, "training_NoNA_NoMultc.csv")
+fwrite(validation.NoNA.NoMultc, "validation_NoNA_NoMultc.csv")
 ```
 
 
