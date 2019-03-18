@@ -349,7 +349,7 @@ Removed:
 
 - Weekend (correlated with Weekday)
 - Morning (correlated with Afternoon)
-- 2016-05-01 (correlated with the rest of the other dates)
+- 2016-05-08 (correlated with the rest of the other dates)
 - beauty.x (correlated with the rest of the app usage count features)
 - beauty.y (correlated with the rest of the is_active ratio features)
 
@@ -385,7 +385,7 @@ validation.NoNA.NoMultc <- validation.NoNA %>%
 # Delete one of morning/afternoon
   select(-one_of("morning")) %>%
 # Delete one date
-  select(-one_of("2016-05-01")) %>%
+  select(-one_of("2016-05-08")) %>%
 # Delete one app category count
   select(-one_of("beauty.x")) %>%
 # Delete one is_active ratio
