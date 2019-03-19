@@ -42,6 +42,7 @@ library(tidyverse)
 library(kableExtra)
 library(readxl)
 library(chron)
+library(VIM)
 ```
 ```{r}
 versions<-sessionInfo()
@@ -334,8 +335,8 @@ In addition to those devices that either had no recorded events, or those that h
 
 NA values can be problematic for model building so remove them.
 ```{r}
-training.NoNA<- training[is.na(entertainment.y)==FALSE]
-validation.NoNA<-validation[is.na(entertainment.y)==FALSE]
+training.NoNA<- training[is.na(training$entertainment.y)==FALSE]
+validation.NoNA<-validation[which(is.na(training$entertainment.y)==FALSE)]
 fwrite(training.NoNA, "training_NoNA.csv")
 fwrite(validation.NoNA, "validation_NoNA.csv")
 ```
@@ -400,6 +401,16 @@ Save the new datasets
 ```{r}
 fwrite(training.NoNA.NoMultc, "training_NoNA_NoMultc.csv")
 fwrite(validation.NoNA.NoMultc, "validation_NoNA_NoMultc.csv")
+```
+
+try KNN to impute missing location value
+```{r}
+training.NoNA.NoMultc <- fread( "training_NoNA_NoMultc.csv")
+validation.NoNA.NoMultc <- fread( "validation_NoNA_NoMultc.csv")
+knn_3 <- kNN(training.NoNA.NoMultc,variable=c("longitude","latitude"),k=3) #k=3
+```
+```{r}
+summary(knn_3) #no missing value in longitude and altitude
 ```
 
 
