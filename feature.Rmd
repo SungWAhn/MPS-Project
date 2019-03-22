@@ -66,6 +66,7 @@ gender_age <- fread("gender_age_train.csv", header = T, integer64 = "character",
 ```
 
 Is active ratio for each app category
+- Instead of doing counts of is_active occurrences in each app category, we did a ratio. The ratio can be interpretted as, for every app used, how many is_active occurrences were there? By doing a ratio, we can provide more context to the is_active numbers. For example, if a device had 100 is_active occurrences, we might think that is a lot. But if these occurrences were spread out between 100 apps, then maybe it is not that much. By making this predictor a ratio, more information can be obtained.
 ```{r}
 # Subset of the training data
 response <- train[, list(device_id, event_id, app_id, is_active)]
@@ -76,15 +77,12 @@ deviceid <- unique(train$device_id)
 # Merge response with uniquelables
 isactivecats <- merge(x = response, y = uniquelabels, by = 'app_id', all.x = T, allow.cartesian = T)
 isactivecats <- isactivecats[order(device_id)]
-```
 
-
-```{r}
 # Only keep observations with is_active=1, count number of is_active occurrences in each category
 sum.isactive.bycat <- isactivecats %>%
   filter(is_active == 1) %>%
   group_by(device_id, category, is_active) %>%
-  dplyr::summarise(count = n())
+  dplyr::summarise(isactive.count = n())
 
 # Count the number of apps used in each category
 sum.apps.bycat <- isactivecats %>%
@@ -95,13 +93,21 @@ sum.apps.bycat <- isactivecats %>%
   group_by(device_id, category) %>%
   dplyr::summarise(count = n())
 
-# Calculate the ratios
 sum.isactive.bycat$appcount <- sum.apps.bycat$count
+```
+
+```{r results='asis', echo=FALSE}
+kable(sum.isactive.bycat[1:15,4:5], caption = 'App count vs. Is_Active Count') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+```
+
+```{r}
+# Calculate the ratios
 sum.isactive.bycat <- sum.isactive.bycat %>%
-  mutate(ratio = count/appcount)
+  mutate(ratio = isactive.count/appcount)
 
 feature <- sum.isactive.bycat %>%
-  select(-one_of("is_active", "count", "appcount")) %>%
+  select(-one_of("is_active", "isactive.count", "appcount")) %>%
   spread(key = category, value = ratio)
 
 feature[is.na(feature)]=0
@@ -336,7 +342,7 @@ In addition to those devices that either had no recorded events, or those that h
 NA values can be problematic for model building so remove them.
 ```{r}
 training.NoNA<- training[is.na(training$entertainment.y)==FALSE]
-validation.NoNA<-validation[which(is.na(training$entertainment.y)==FALSE)]
+validation.NoNA<-validation[which(is.na(validation$entertainment.y)==FALSE)]
 fwrite(training.NoNA, "training_NoNA.csv")
 fwrite(validation.NoNA, "validation_NoNA.csv")
 ```
@@ -349,7 +355,7 @@ validation.NoNA <- fread("validation_NoNA.csv", header = T, integer64 = "charact
 Removed:
 
 - Weekend (correlated with Weekday)
-- Morning (correlated with Afternoon)
+- Count.0_4 (correlated with the rest of the time chunks)
 - 2016-05-08 (correlated with the rest of the other dates)
 - beauty.x (correlated with the rest of the app usage count features)
 - beauty.y (correlated with the rest of the is_active ratio features)
@@ -367,7 +373,7 @@ training.NoNA.NoMultc <- training.NoNA %>%
 # Delete one of weekend/weekday
   select(-one_of("weekend")) %>%
 # Delete one of morning/afternoon
-  select(-one_of("morning")) %>%
+  select(-one_of("count.0_4")) %>%
 # Delete one date
   select(-one_of("2016-05-01")) %>%
 # Delete one app category count
@@ -384,7 +390,7 @@ validation.NoNA.NoMultc <- validation.NoNA %>%
 # Delete one of weekend/weekday
   select(-one_of("weekend")) %>%
 # Delete one of morning/afternoon
-  select(-one_of("morning")) %>%
+  select(-one_of("count.0_4")) %>%
 # Delete one date
   select(-one_of("2016-05-08")) %>%
 # Delete one app category count
@@ -405,12 +411,18 @@ fwrite(validation.NoNA.NoMultc, "validation_NoNA_NoMultc.csv")
 
 try KNN to impute missing location value
 ```{r}
-training.NoNA.NoMultc <- fread( "training_NoNA_NoMultc.csv")
-validation.NoNA.NoMultc <- fread( "validation_NoNA_NoMultc.csv")
-knn_3 <- kNN(training.NoNA.NoMultc,variable=c("longitude","latitude"),k=3) #k=3
+# training
+training.NoNA.NoMultc <- fread( "training_NoNA_NoMultc.csv", integer64 = 'character')
+validation.NoNA.NoMultc <- fread( "validation_NoNA_NoMultc.csv", integer64 = 'character')
+knn_3 <- kNN(training.NoNA.NoMultc,variable=c("longitude","latitude"),k=5) #k=5
+
+# validation
+knn_3_val <- kNN(validation.NoNA.NoMultc,variable=c("longitude","latitude"),k=5)
 ```
 ```{r}
 summary(knn_3) #no missing value in longitude and altitude
+fwrite(knn_3, 'knn_3.csv')
+fwrite(knn_3_val, 'knn_3_val.csv')
 ```
 
 
@@ -429,32 +441,21 @@ model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action 
 
 PCA Analysis
 ```{r}
-training <- fread("training.csv", header = T, integer64 = "character")
-count.train <- subset(training, select = beauty.x:vehicle.x)
-ratio.train <- subset(training, select = beauty.y:vehicle.y)
-count.train <- na.omit(count.train)  # 18629    25
-ratio.train <- na.omit(ratio.train)  # 18594    24
+training <- fread("training_NoNA_NoMultc.csv", header = T, integer64 = "character")
+count.train <- subset(training, select = book.x:vehicle.x)
+ratio.train <- subset(training, select = book.y:vehicle.y)
 ```
 
-```{r}
-fwrite(count.train, 'count_train.csv')
-fwrite(ratio.train, 'ratio_train.csv')
-```
-
-```{r}
-count.train <- fread("count_train.csv", header = T, integer64 = "character")
-ratio.train <- fread("ratio_train.csv", header = T, integer64 = "character")
-```
 
 ```{r}
 # conduct PCA on the two datasets
 count.pca <- prcomp(count.train[,-1], center = TRUE, scale. = TRUE)
-summary(count.pca)   # 11 PCs for cumulative proportion of >90% 
+summary(count.pca)   # 9 PCs for cumulative proportion of >90% 
 ratio.pca <- prcomp(ratio.train[,-1], center = TRUE, scale. = TRUE) 
-summary(ratio.pca)   # 15 PCs for cumulative proportion of >90% 
+summary(ratio.pca)   # 13 PCs for cumulative proportion of >90% 
 
-count.train.pca <- data.frame(device_id = count.train$device_id, count.pca$x[,1:11])
-ratio.train.pca <- data.frame(device_id = ratio.train$device_id, ratio.pca$x[,1:15])
+count.train.pca <- data.frame(device_id = training$device_id, count.pca$x[,1:9], stringsAsFactors = F)
+ratio.train.pca <- data.frame(device_id = training$device_id, ratio.pca$x[,1:13], stringsAsFactors = F)
 ```
 
 ```{r}
@@ -465,27 +466,55 @@ fwrite(ratio.train.pca, 'ratio_train_pca.csv')
 
 ```{r}
 # test 
-validation <- fread("validation.csv", header = T, integer64 = "character")
-count.test <- subset(validation, select = beauty.x:vehicle.x)
-ratio.test <- subset(validation, select = beauty.y:vehicle.y)
-count.test <- na.omit(count.test)  # 4661    25
-ratio.test <- na.omit(ratio.test)  # 4653    24
+validation <- fread("validation_NoNA_NoMultc.csv", header = T, integer64 = "character")
+count.test <- subset(validation, select = book.x:vehicle.x)
+ratio.test <- subset(validation, select = book.y:vehicle.y)
 ```
 
-```{r}
-fwrite(count.test, 'count_test.csv')
-fwrite(ratio.test, 'ratio_test.csv')
-```
 
 ```{r}
 count.test.pca <- predict(count.pca, newdata = count.test[,-1])
-count.test.pca <- data.frame(device_id = count.test$device_id, count.test.pca[,1:11])
+count.test.pca <- data.frame(device_id = validation$device_id, count.test.pca[,1:9], stringsAsFactors = F)
 ratio.test.pca <- predict(ratio.pca, newdata = ratio.test[,-1])
-ratio.test.pca <- data.frame(device_id = ratio.test$device_id, ratio.test.pca[,1:15])
+ratio.test.pca <- data.frame(device_id = validation$device_id, ratio.test.pca[,1:13], stringsAsFactors = F)
 ```
 
 ```{r}
 fwrite(count.test.pca, 'count_test_pca.csv')
 fwrite(ratio.test.pca, 'ratio_test_pca.csv')
+knn_3 <- fread('knn_3.csv', header=T, integer64 = 'character')
+knn_3_val <- fread('knn_3_val.csv', header=T, integer64 = 'character')
 ```
 
+```{r}
+#training
+training.final <- training.NoNA.NoMultc[,-c(6:28)]
+training.final <- training.final[,-c(20:41)]
+training.final <- training.final[,-c(3:4)]
+
+colnames(count.train.pca) <- paste('count',colnames(count.train.pca),sep='.')
+colnames(ratio.train.pca) <- paste('ratio',colnames(ratio.train.pca),sep='.')
+
+training.final <- cbind(training.final, count.train.pca[,-1])
+training.final <- cbind(training.final, ratio.train.pca[,-1])
+training.final[order(device_id)]
+knn_3[order(device_id)]
+training.final <- cbind(training.final, knn_3[,3:4])
+fwrite(training.final, 'training_final.csv')
+
+
+# validation
+validation.final <- validation.NoNA.NoMultc[,-c(6:28)]
+validation.final <- validation.final[,-c(20:41)]
+validation.final <- validation.final[,-c(3:4)]
+
+colnames(count.test.pca) <- paste('count',colnames(count.test.pca),sep='.')
+colnames(ratio.test.pca) <- paste('ratio',colnames(ratio.test.pca),sep='.')
+
+validation.final <- cbind(validation.final, count.test.pca[,-1])
+validation.final <- cbind(validation.final, ratio.test.pca[,-1])
+validation.final[order(device_id)]
+knn_3_val<-setDT(knn_3_val)[order(device_id)]
+validation.final <- cbind(validation.final, knn_3_val[,3:4])
+fwrite(validation.final, 'validation_final.csv')
+```
