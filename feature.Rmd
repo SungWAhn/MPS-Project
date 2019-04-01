@@ -308,9 +308,8 @@ just comparing 2 of the 9 features, the 268 observations match.
 
 Look up the device_ids with NA values in the train dataset to see why they became missing.
 ```{r}
-# 
 datemissing<-train[device_id%in%d01$device_id]
-datemissing
+head(datemissing)
 ```
 Looking at the table, we can see that these devices have no recorded events. Without events, there can't be any data of dates an event occurred. For these devices the date features are all set to NA.
 
@@ -322,7 +321,7 @@ setdiff(appcat1,appcat2)
 setdiff(appcat2,appcat1)
 appcatmissing <- train[device_id%in%appcat1$device_id]
 length(unique(appcatmissing$device_id))
-appcatmissing
+appcatmissing[268:280,]
 ```
 In addition to the 268 devices that had no recorded events, the devices that had events but no corresponding app_ids recorded will also be set to NA.
 
@@ -333,9 +332,12 @@ setdiff(isactive1,isactive2)
 setdiff(isactive2,isactive1)
 isactivemissing <- train[device_id%in%isactive1$device_id]
 length(unique(isactivemissing$device_id))
-isactivemissing
+isactivemissing[961:975,]
 ```
 In addition to those devices that either had no recorded events, or those that had events but no recored app activity, the is_active ratio will also consider as NA those devices that have events and recorded app activity but never had an instance where is_active equalled to 1.
+
+
+
 
 ## Remove the 318 Observations with NA values
 
@@ -350,7 +352,8 @@ fwrite(validation.NoNA, "validation_NoNA.csv")
 training.NoNA <- fread("training_NoNA.csv", header = T, integer64 = "character")
 validation.NoNA <- fread("validation_NoNA.csv", header = T, integer64 = "character")
 ```
-## Remove multiollinearity
+
+## Remove multicollinearity
 
 Removed:
 
@@ -375,7 +378,7 @@ training.NoNA.NoMultc <- training.NoNA %>%
 # Delete one of morning/afternoon
   select(-one_of("count.0_4")) %>%
 # Delete one date
-  select(-one_of("2016-05-01")) %>%
+  select(-one_of("2016-05-08")) %>%
 # Delete one app category count
   select(-one_of("beauty.x")) %>%
 # Delete one is_active ratio
@@ -403,13 +406,37 @@ validation.NoNA.NoMultc <- validation.NoNA %>%
   #select(-one_of("n_distinct(app_id)"))
 ```
 
+```{r}
+# Column names cause issues with some of the models
+colnames(training.NoNA.NoMultc)[2] <- 'count.app'
+colnames(training.NoNA.NoMultc)[29] <- 'May01'
+colnames(training.NoNA.NoMultc)[30] <- 'Apr30'
+colnames(training.NoNA.NoMultc)[31] <- 'May02'
+colnames(training.NoNA.NoMultc)[32] <- 'May03'
+colnames(training.NoNA.NoMultc)[33] <- 'May04'
+colnames(training.NoNA.NoMultc)[34] <- 'May05'
+colnames(training.NoNA.NoMultc)[35] <- 'May06'
+colnames(training.NoNA.NoMultc)[36] <- 'May07'
+
+
+colnames(validation.NoNA.NoMultc)[2] <- 'count.app'
+colnames(validation.NoNA.NoMultc)[29] <- 'May01'
+colnames(validation.NoNA.NoMultc)[30] <- 'Apr30'
+colnames(validation.NoNA.NoMultc)[31] <- 'May02'
+colnames(validation.NoNA.NoMultc)[32] <- 'May03'
+colnames(validation.NoNA.NoMultc)[33] <- 'May04'
+colnames(validation.NoNA.NoMultc)[34] <- 'May05'
+colnames(validation.NoNA.NoMultc)[35] <- 'May06'
+colnames(validation.NoNA.NoMultc)[36] <- 'May07'
+```
+
 Save the new datasets
 ```{r}
 fwrite(training.NoNA.NoMultc, "training_NoNA_NoMultc.csv")
 fwrite(validation.NoNA.NoMultc, "validation_NoNA_NoMultc.csv")
 ```
 
-try KNN to impute missing location value
+## try KNN to impute missing location value
 ```{r}
 # training
 training.NoNA.NoMultc <- fread( "training_NoNA_NoMultc.csv", integer64 = 'character')
@@ -439,7 +466,7 @@ model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action 
 
 
 
-PCA Analysis
+## PCA Analysis
 ```{r}
 training <- fread("training_NoNA_NoMultc.csv", header = T, integer64 = "character")
 count.train <- subset(training, select = book.x:vehicle.x)
@@ -479,6 +506,8 @@ ratio.test.pca <- predict(ratio.pca, newdata = ratio.test[,-1])
 ratio.test.pca <- data.frame(device_id = validation$device_id, ratio.test.pca[,1:13], stringsAsFactors = F)
 ```
 
+
+# Replace the imputed location predictors with the imputed ones and the app category predictors with the Principal Components
 ```{r}
 fwrite(count.test.pca, 'count_test_pca.csv')
 fwrite(ratio.test.pca, 'ratio_test_pca.csv')
