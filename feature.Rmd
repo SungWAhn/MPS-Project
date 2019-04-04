@@ -430,6 +430,48 @@ colnames(validation.NoNA.NoMultc)[35] <- 'May06'
 colnames(validation.NoNA.NoMultc)[36] <- 'May07'
 ```
 
+Rearrange the features in to a logical ordering
+```{r}
+# Place the response column at the beginning, rearrange the date features in chronological order, place overall count features together, put app count and isactive count features together
+training.NoNA.NoMultc <- training.NoNA.NoMultc[,c(1,65,3,4,5,2,6:28,43:64,30,29,31:42,66,67)]
+
+validation.NoNA.NoMultc <- validation.NoNA.NoMultc[,c(1,65,3,4,5,2,6:28,43:64,30,29,31:42,66,67)]
+```
+
+Rename the suffixes .x and .y
+```{r}
+# Rename the suffix for app count features
+appcounts_training <- names(training.NoNA.NoMultc[,c(7:29)])
+appcounts_valid <- names(validation.NoNA.NoMultc[,c(7:29)])
+for (i in 1:length(appcounts_training)) {
+  appcounts_training[i] <- paste(str_split(appcounts_training[i], '\\.')[[1]][1],'appCt', sep = '.')
+  appcounts_valid[i] <- paste(str_split(appcounts_valid[i], '\\.')[[1]][1],'appCt', sep = '.')
+}
+
+names(training.NoNA.NoMultc)[c(7:29)] <- appcounts_training
+names(validation.NoNA.NoMultc)[c(7:29)] <- appcounts_valid
+
+# Rename the suffix for is_active ratio features
+isactiveRatios_training <- names(training.NoNA.NoMultc[,c(30:51)])
+isactiveRatios_valid <- names(validation.NoNA.NoMultc[,c(30:51)])
+for (i in 1:length(isactiveRatios_training)) {
+  isactiveRatios_training[i] <- paste(str_split(isactiveRatios_training[i], '\\.')[[1]][1],'isactiveRat', sep = '.')
+  isactiveRatios_valid[i] <- paste(str_split(isactiveRatios_valid[i], '\\.')[[1]][1],'isactiveRat', sep = '.')
+}
+
+names(training.NoNA.NoMultc)[c(30:51)]  <- isactiveRatios_training
+names(validation.NoNA.NoMultc)[c(30:51)] <- isactiveRatios_valid
+```
+
+Test that everything has worked properly
+```{r}
+# Check the column names match between training and validation
+length(names(training.NoNA.NoMultc))
+length(names(validation.NoNA.NoMultc))
+NoNANoMultc_match <- cbind(names(training.NoNA.NoMultc), names(validation.NoNA.NoMultc))
+NoNANoMultc_match
+```
+
 Save the new datasets
 ```{r}
 fwrite(training.NoNA.NoMultc, "training_NoNA_NoMultc.csv")
@@ -453,24 +495,11 @@ fwrite(knn_3_val, 'knn_3_val.csv')
 ```
 
 
-```{r eval=FALSE, echo=FALSE}
-train.impute <- rfImpute(group~. , data=training)
-train.rf <- randomForest(group~. , data=training)
-len = dim(training)[2]
-for (i in 1:length(len)){
-  print(class(training[,i]))
-}
-model1 <- randomForest(group ~ ., data = training, importance = TRUE, na.action = na.omit)
-```
-
-
-
-
 ## PCA Analysis
 ```{r}
 training <- fread("training_NoNA_NoMultc.csv", header = T, integer64 = "character")
-count.train <- subset(training, select = book.x:vehicle.x)
-ratio.train <- subset(training, select = book.y:vehicle.y)
+count.train <- subset(training, select = book.appcnt:vehicle.appcnt)
+ratio.train <- subset(training, select = book.isactiveCnt:vehicle.isactiveCnt)
 ```
 
 
@@ -546,4 +575,45 @@ validation.final[order(device_id)]
 knn_3_val<-setDT(knn_3_val)[order(device_id)]
 validation.final <- cbind(validation.final, knn_3_val[,3:4])
 fwrite(validation.final, 'validation_final.csv')
+```
+
+```{r}
+# Column names cause issues with some of the models
+colnames(train.final)[2] <- 'count.app'
+colnames(train.final)[4] <- 'May01'
+colnames(train.final)[5] <- 'Apr30'
+colnames(train.final)[6] <- 'May02'
+colnames(train.final)[7] <- 'May03'
+colnames(train.final)[8] <- 'May04'
+colnames(train.final)[9] <- 'May05'
+colnames(train.final)[10] <- 'May06'
+colnames(train.final)[11] <- 'May07'
+
+
+colnames(valid.final)[2] <- 'count.app'
+colnames(valid.final)[4] <- 'May01'
+colnames(valid.final)[5] <- 'Apr30'
+colnames(valid.final)[6] <- 'May02'
+colnames(valid.final)[7] <- 'May03'
+colnames(valid.final)[8] <- 'May04'
+colnames(valid.final)[9] <- 'May05'
+colnames(valid.final)[10] <- 'May06'
+colnames(valid.final)[11] <- 'May07'
+
+train.final <- train.final[,c(1,18,43,44,3,2,21:29,30:42,5,4,6:17,19,20)]
+valid.final <- valid.final[,c(1,18,43,44,3,2,21:29,30:42,5,4,6:17,19,20)]
+```
+
+Check that everything has worked properly
+```{r}
+length(names(train.final))
+length(names(valid.final))
+final_match <- cbind(names(train.final), names(valid.final))
+final_match
+```
+
+Save the new datasets
+```{r}
+fwrite(train.final, "training_final.csv")
+fwrite(valid.final, "validation_final.csv")
 ```
