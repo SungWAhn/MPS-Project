@@ -127,18 +127,13 @@ mean(pred1!=valid1$group)
 #[1] 0.9024285
 
 #log-loss
-obs<-valid.final$group
-mis<-valid.final[which(pred=='F23-' & pred != obs),]
-
-n=dim(pred_probs)[1]
-ngroup=length(fit1$levels)
-log=0
-for (i in 1:n){
-  for (j in 1:ngroup){
-    log=log+log(pred_probs[i,j])
-  }
+pred1probsdat <- data.frame(valid1$group, pred1probs)
+logloss <- vector(length = length(pred1probsdat$valid1.group))
+for (i in 1:length(pred1probsdat$valid1.group)) {
+  clas=grep(str_split(paste(pred1probsdat$valid1.group[i]), '-')[[1]][1], names(pred1probsdat))
+  logloss[i] = log(pred1probsdat[i,clas])
 }
-logloss=-log/n
+-mean(logloss)
 ```
 ```{r}
 confusion1 <- as.data.frame(table(pred1, valid1$group))
@@ -162,7 +157,7 @@ predictions1 <- predictions1[,c("pred1", "M22.", "F23.", "F24.26")]
 
 # Compare the group predictions with the feature values
 valid1vars <- valid.final[,c("count.app", "count_event", "weekday")]
-predictions1 <- cbind(predictions1, valid1vars)
+predictions1 <- cbind(valid1$group, predictions1, valid1vars)
 ```
 ```{r}
 kable(predictions1[1:15,], caption = 'Predictions') %>%
@@ -253,11 +248,12 @@ marrangeGrob(graphs2, ncol=2, nrow = 3)
 ```
 
 ```{r}
-ggplot(data=train.NoNANoM, aes_string(x='group', y='count.app'))+
+ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
   geom_jitter(position = position_jitter(.2), na.rm = TRUE) +
-  ylim(c(0,100))
+  ylim(c(0,900))
 ```
-If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up.
+If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
+
 ```{r}
 #features: count.app, count_event, weekday, group
 traince<-train.final[,-c(1,6,29:44,7,16)]
@@ -352,6 +348,68 @@ summary(pred6)
 #2770      0    154      0     40      0    437    233      9      0    839    171 
 mean(pred6!=valid6$group)
 # 0.8934021
+
+#log-loss
+pred6probs <-predict(fit6, valid6, type = 'raw')
+pred6probsdat <- data.frame(valid6$group, pred6probs)
+logloss <- vector(length = length(pred6probsdat$valid6.group))
+for (i in 1:length(pred6probsdat$valid6.group)) {
+  clas=grep(str_split(paste(pred6probsdat$valid6.group[i]), '-')[[1]][1], names(pred6probsdat))
+  logloss[i] = log(pred6probsdat[i,clas])
+}
+-mean(logloss)
+```
+## Try creating categorical features
+```{r}
+fit1$tables$count.app
+traincateg <- train.NoNANoM %>%
+  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
+                            count.app > 13 & count.app <= 50 ~ "med",
+                            count.app > 51 ~ "high"),
+         weekdaycat = case_when(weekday <= 13 ~ "low",
+                            weekday > 14 & weekday <= 50 ~ "med",
+                            weekday > 51 ~ "high"),
+         eventcountcat = case_when(count_event <= 12 ~ "low",
+                            count_event > 13 & count_event <= 50 ~ "med",
+                            count_event > 51 ~ "high"),
+         bussincountcat = case_when(business.appCt <= 100 ~ "low",
+                            business.appCt > 101 & business.appCt <= 150 ~ "med",
+                            business.appCt > 151 ~ "high"))
+validcateg <- valid.NoNANoM %>%
+  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
+                            count.app > 13 & count.app <= 50 ~ "med",
+                            count.app > 51 ~ "high"),
+         weekdaycat = case_when(weekday <= 13 ~ "low",
+                            weekday > 14 & weekday <= 50 ~ "med",
+                            weekday > 51 ~ "high"),
+         eventcountcat = case_when(count_event <= 12 ~ "low",
+                            count_event > 13 & count_event <= 50 ~ "med",
+                            count_event > 51 ~ "high"),
+         bussincountcat = case_when(business.appCt <= 100 ~ "low",
+                            business.appCt > 101 & business.appCt <= 150 ~ "med",
+                            business.appCt > 151 ~ "high"))
+
+
+train7<-traincateg[, c(2,68,69,70)]
+valid7<-validcateg[, c(2,68,69,70)]
+fit7<-naiveBayes(as.factor(group)~., data=train7)
+valid7$group<-as.factor(valid7$group)
+pred7<-predict(fit7, valid7)
+summary(pred7)
+#F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#2770      0    154      0     40      0    437    233      9      0    839    171 
+mean(pred7!=valid7$group)
+# 0.8934021
+
+#log-loss
+pred7probs <-predict(fit7, valid7, type = 'raw')
+pred7probsdat <- data.frame(valid7$group, pred7probs)
+logloss <- vector(length = length(pred7probsdat$valid7.group))
+for (i in 1:length(pred7probsdat$valid7.group)) {
+  clas=grep(str_split(paste(pred7probsdat$valid7.group[i]), '-')[[1]][1], names(pred7probsdat))
+  logloss[i] = log(pred7probsdat[i,clas])
+}
+-mean(logloss)
 ```
 
 ## Naive Bayes Model: No PCA
