@@ -33,6 +33,7 @@ library(mlbench)
 library(corrplot)
 library(bnlearn)
 library(gridExtra)
+library(plotly)
 ```
 ```{r}
 versions<-sessionInfo()
@@ -58,61 +59,6 @@ valid.NoNANoM<-fread('validation_NoNA_NoMultc.csv', header = T, integer64 = 'cha
 # train.final<-train.final[, -11]
 ```
 
-
-## Naive Bayes Model: Check the Independence Assumption
-```{r fig.height=14, fig.width=14}
-train.final$group <- as.factor(train.final$group)
-corr <- cor(train.final[,-c(1,2,43,44)])
-corrplot(corr, order = "hclust", type = 'lower', tl.col = 'black', tl.srt = 45)
-
-corrM <- cor(train.NoNANoM[,-c(1,2,66,67)])
-corrplot(corrM, type = 'lower', tl.col = 'black', tl.srt = 45)
-```
-We can see from these two plots that there are some significant correlations between the features. The date features are all correlated with each other.
-
-## Check the Distributions: Are they Gaussian?
-```{r fig.height=10, fig.width=12}
-ggplot(data = train.final, aes(x = count_event, fill = group)) +
-  geom_histogram(binwidth = 10) +
-  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
-  xlim(c(0,250)) +
-  ggtitle("Event Count")
-
-ggplot(data = train.final, aes(x = count.app, fill = group)) +
-  geom_histogram(binwidth = 10) +
-  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
-  xlim(c(0,250)) +
-  ggtitle("App Count")
-
-ggplot(data = train.final, aes(x = longitude)) +
-  geom_histogram(binwidth = 10) +
-  xlim(c(0,750)) +
-  ggtitle("Longitude")
-
-ggplot(data = train.final, aes(x = latitude)) +
-  geom_histogram(binwidth = 10) +
-  xlim(c(0,750)) +
-  ggtitle("Latitude")
-
-ggplot(data = train.final, aes(x = weekday)) +
-  geom_histogram(binwidth = 10) +
-  xlim(c(0,750)) +
-  ggtitle("Weekday")
-
-countPCgraphs <- map(names(train.final[,7:15]), ~ggplot(data=train.final, aes_string(x=.x))+ xlim(c(-7,7)) +
-  geom_histogram(binwidth = .05))
-
-marrangeGrob(countPCgraphs, ncol=2, nrow = 3)
-
-ratioPCgraphs <- map(names(train.final[,16:28]), ~ggplot(data=train.final, aes_string(x=.x))+ xlim(c(-7,7)) +
-  geom_histogram(binwidth = .05))
-
-marrangeGrob(ratioPCgraphs, ncol=2, nrow = 3)
-```
-The principal components are actually approximately Gaussian. However, they all have the exact same shape and mean. This is not good for classification. The event count, app count, and weekdays are all heavily skewed. This may be due to the fact that these features are not suitable as Gaussian distributions. Since these are count features, we should perhaps be using the multinomial distribution instead.
-
-
-## Check the conditional distributions: How varied are the Groups?
 ```{r}
 #features: count.app, count_event, weekday, group
 train1<-cbind(train.final[,6], train.final[,5], train.final[,37], train.final[,2])
@@ -120,6 +66,7 @@ valid1<-cbind(valid.final[,6], valid.final[,5], valid.final[,37], valid.final[,2
 fit1<-naiveBayes(as.factor(group)~., data=train1)
 valid1$group<-as.factor(valid1$group)
 pred1<-predict(fit1, valid1)
+pred1probs<-predict(fit1, valid1, type ='raw')
 summary(pred1)
 # F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
 #1566      0      0      0      0      0   2136    283      9      0    428    231 
@@ -147,146 +94,6 @@ p<-ggplot(confusion1, aes(Var2, pred1)) +
   labs(x= 'Observed', y= 'Predicted', title = 'Confusion Matrix')
 p
 ```
-
-```{r}
-# Compare the predictions with the actual probabilities
-pred1<-predict(fit1, valid1)
-pred1probs<-predict(fit1, valid1, type ='raw')
-predictions1 <- data.frame(pred1, pred1probs)
-predictions1 <- predictions1[,c("pred1", "M22.", "F23.", "F24.26")]
-
-# Compare the group predictions with the feature values
-valid1vars <- valid.final[,c("count.app", "count_event", "weekday")]
-predictions1 <- cbind(valid1$group, predictions1, valid1vars)
-```
-```{r}
-kable(predictions1[1:15,], caption = 'Predictions') %>%
-  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
-```
-```{r}
-# Look at the mean and sd of the gaussian distribution it is using
-distrs <- cbind(fit1$tables$count.app, fit1$tables$count_event, fit1$tables$weekday)
-colnames(distrs)<-c("count.appmean", "count.appsd", "count_eventmean", "count_eventsd", "weekdaymean", "weekdaysd")
-
-# Now lot the Normal distributions
-# Distribution of the App Count
-caseqs <- matrix(nrow=100,ncol=12)
-ecseqs <- matrix(nrow=100,ncol=12)
-weseqs <- matrix(nrow=100,ncol=12)
-cadists <- matrix(nrow=100,ncol=12)
-ecdists <- matrix(nrow=100,ncol=12)
-wedists <- matrix(nrow=100,ncol=12)
-
-for (i in 1:12) {
-  caseqs[,i]<-seq(distrs[i,1]-4*distrs[i,2],distrs[i,1]+4*distrs[i,2], length=100)
-  cadists[,i]<-dnorm(caseqs[,i],mean = distrs[i,1], sd=distrs[i,2])
-  
-  ecseqs[,i]<-seq(distrs[i,3]-4*distrs[i,4],distrs[i,3]+4*distrs[i,4], length=100)
-  ecdists[,i]<-dnorm(ecseqs[,i],mean = distrs[i,3], sd=distrs[i,4])
-  
-  weseqs[,i]<-seq(distrs[i,5]-4*distrs[i,6],distrs[i,5]+4*distrs[i,6], length=100)
-  wedists[,i]<-dnorm(weseqs[,i],mean = distrs[i,5], sd=distrs[i,6])
-}
-
-caseqs<-c(caseqs[,1], caseqs[,2], caseqs[,3], caseqs[,4], caseqs[,5], caseqs[,6], caseqs[,7], caseqs[,8], caseqs[,9], caseqs[,10], caseqs[,11], caseqs[,12])
-
-caseqs<- data.frame('x'=caseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
-
-caseqs$y <- c(cadists[,1], cadists[,2], cadists[,3], cadists[,4], cadists[,5], cadists[,6], cadists[,7], cadists[,8], cadists[,9], cadists[,10], cadists[,11], cadists[,12])
-
-ecseqs<-c(ecseqs[,1], ecseqs[,2], ecseqs[,3], ecseqs[,4], ecseqs[,5], ecseqs[,6], ecseqs[,7], ecseqs[,8], ecseqs[,9], ecseqs[,10], ecseqs[,11], ecseqs[,12])
-
-ecseqs<- data.frame('x'=ecseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
-
-ecseqs$y <- c(ecdists[,1], ecdists[,2], ecdists[,3], ecdists[,4], ecdists[,5], ecdists[,6], ecdists[,7], ecdists[,8], ecdists[,9], ecdists[,10], ecdists[,11], ecdists[,12])
-
-
-weseqs<-c(weseqs[,1], weseqs[,2], weseqs[,3], weseqs[,4], weseqs[,5], weseqs[,6], weseqs[,7], weseqs[,8], weseqs[,9], weseqs[,10], weseqs[,11], weseqs[,12])
-
-weseqs<- data.frame('x'=weseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
-
-weseqs$y <- c(wedists[,1], wedists[,2], wedists[,3], wedists[,4], wedists[,5], wedists[,6], wedists[,7], wedists[,8], wedists[,9], wedists[,10], wedists[,11], wedists[,12])
-
-
-ggplot(caseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('App Count')
-
-ggplot(ecseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('App Count')
-
-ggplot(weseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('App Count')
-```
-```{r fig.height=8, fig.width=7, warning=FALSE}
-a<-ggplot(train.final, aes(x=group, y=count_event)) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  ylim(c(0,1000))
-
-b<-ggplot(train.final, aes(x=group, y=count.app)) + 
-  geom_jitter(position=position_jitter(0.2))
-
-grid.arrange(a,b, ncol=1)
-```
-```{r fig.height=10, fig.width=12, warning=FALSE}
-graphs <- map(names(train.final[,-c(1,2,43,44)]), ~ggplot(data=train.final, aes_string(x='group', y=.x))+
-  geom_jitter(position = position_jitter(.2)))
-
-marrangeGrob(graphs, ncol=2, nrow = 3)
-```
-
-We can see that our features are actually do not have much variance between groups. The distributions are too similar to find clear classification boundaries.
-
-```{r fig.height=10, fig.width=12, warning=FALSE}
-names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
-graphs2 <- map(names(train.NoNANoM[,-c(1,2,3,4,66,67)]), ~ggplot(data=train.NoNANoM, aes_string(x='group', y=.x))+
-  geom_jitter(position = position_jitter(.2), na.rm = TRUE))
-
-marrangeGrob(graphs2, ncol=2, nrow = 3)
-```
-
-```{r}
-ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
-  geom_jitter(position = position_jitter(.2), na.rm = TRUE) +
-  ylim(c(0,900))
-```
-If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
-
-```{r}
-#features: count.app, count_event, weekday, group
-traince<-train.final[,-c(1,6,29:44,7,16)]
-validce<-valid.final[,-c(1,6,29:44,7,16)]
-fitce<-naiveBayes(as.factor(group)~., data=traince)
-validce$group<-as.factor(validce$group)
-predce<-predict(fitce, validce)
-summary(predce)
-# F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
-#1566      0      0      0      0      0   2136    283      9      0    428    231 
-mean(predce!=validce$group)
-#[1] 0.9024285
-```
-```{r}
-confusionce <- as.data.frame(table(predce, validce$group))
-p<-ggplot(confusionce, aes(Var2, predce)) +
-  geom_tile(aes(fill = Freq), colour='gray') +
-  scale_fill_gradient(low='antiquewhite', high = 'purple') +
-  theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 9),
-        axis.text.y = element_text(size = 9),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 12)) +
-  labs(x= 'Observed', y= 'Predicted', title = 'Confusion Matrix')
-p
-```
-
-## Multinomial Distribution
-```{r eval=FALSE}
-bn = naive.bayes(train1$group, "group")
-pred = predict(bn, learning.test)
-table(pred, learning.test[, "A"])
-```
-
 
 ```{r}
 #features: n_distinct(app_id), count_event, weekday, group, 2016-04-30--2016-05-07
@@ -359,58 +166,6 @@ for (i in 1:length(pred6probsdat$valid6.group)) {
 }
 -mean(logloss)
 ```
-## Try creating categorical features
-```{r}
-fit1$tables$count.app
-traincateg <- train.NoNANoM %>%
-  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
-                            count.app > 13 & count.app <= 50 ~ "med",
-                            count.app > 51 ~ "high"),
-         weekdaycat = case_when(weekday <= 13 ~ "low",
-                            weekday > 14 & weekday <= 50 ~ "med",
-                            weekday > 51 ~ "high"),
-         eventcountcat = case_when(count_event <= 12 ~ "low",
-                            count_event > 13 & count_event <= 50 ~ "med",
-                            count_event > 51 ~ "high"),
-         bussincountcat = case_when(business.appCt <= 100 ~ "low",
-                            business.appCt > 101 & business.appCt <= 150 ~ "med",
-                            business.appCt > 151 ~ "high"))
-validcateg <- valid.NoNANoM %>%
-  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
-                            count.app > 13 & count.app <= 50 ~ "med",
-                            count.app > 51 ~ "high"),
-         weekdaycat = case_when(weekday <= 13 ~ "low",
-                            weekday > 14 & weekday <= 50 ~ "med",
-                            weekday > 51 ~ "high"),
-         eventcountcat = case_when(count_event <= 12 ~ "low",
-                            count_event > 13 & count_event <= 50 ~ "med",
-                            count_event > 51 ~ "high"),
-         bussincountcat = case_when(business.appCt <= 100 ~ "low",
-                            business.appCt > 101 & business.appCt <= 150 ~ "med",
-                            business.appCt > 151 ~ "high"))
-
-
-train7<-traincateg[, c(2,68,69,70)]
-valid7<-validcateg[, c(2,68,69,70)]
-fit7<-naiveBayes(as.factor(group)~., data=train7)
-valid7$group<-as.factor(valid7$group)
-pred7<-predict(fit7, valid7)
-summary(pred7)
-#F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
-#2770      0    154      0     40      0    437    233      9      0    839    171 
-mean(pred7!=valid7$group)
-# 0.8934021
-
-#log-loss
-pred7probs <-predict(fit7, valid7, type = 'raw')
-pred7probsdat <- data.frame(valid7$group, pred7probs)
-logloss <- vector(length = length(pred7probsdat$valid7.group))
-for (i in 1:length(pred7probsdat$valid7.group)) {
-  clas=grep(str_split(paste(pred7probsdat$valid7.group[i]), '-')[[1]][1], names(pred7probsdat))
-  logloss[i] = log(pred7probsdat[i,clas])
-}
--mean(logloss)
-```
 
 ## Naive Bayes Model: No PCA
 ```{r eval=FALSE}
@@ -438,3 +193,283 @@ p<-ggplot(confusiont, aes(Var2, predt)) +
   labs(x= 'Observed', y= 'Predicted', title = 'Confusion Matrix')
 p
 ```
+
+## Naive Bayes Model: Check the Independence Assumption
+```{r fig.height=14, fig.width=14}
+train.final$group <- as.factor(train.final$group)
+corr <- cor(train.final[,-c(1,2,43,44)])
+corrplot(corr, order = "hclust", type = 'lower', tl.col = 'black', tl.srt = 45)
+
+corrM <- cor(train.NoNANoM[,-c(1,2,66,67)])
+corrplot(corrM, type = 'lower', tl.col = 'black', tl.srt = 45)
+```
+We can see from these two plots that there are some significant correlations between the features. The date features are all correlated with each other.
+
+## Check the Distributions: Are they Gaussian?
+```{r fig.height=10, fig.width=12}
+ggplot(data = train.final, aes(x = count_event, fill = group)) +
+  geom_histogram(binwidth = 10) +
+  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
+  xlim(c(0,250)) +
+  ggtitle("Event Count")
+
+ggplot(data = train.final, aes(x = count.app, fill = group)) +
+  geom_histogram(binwidth = 10) +
+  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
+  xlim(c(0,250)) +
+  ggtitle("App Count")
+
+ggplot(data = train.final, aes(x = longitude)) +
+  geom_histogram(binwidth = 10) +
+  xlim(c(0,750)) +
+  ggtitle("Longitude")
+
+ggplot(data = train.final, aes(x = latitude)) +
+  geom_histogram(binwidth = 10) +
+  xlim(c(0,750)) +
+  ggtitle("Latitude")
+
+ggplot(data = train.final, aes(x = weekday)) +
+  geom_histogram(binwidth = 10) +
+  xlim(c(0,750)) +
+  ggtitle("Weekday")
+
+countPCgraphs <- map(names(train.final[,7:15]), ~ggplot(data=train.final, aes_string(x=.x))+ xlim(c(-7,7)) +
+  geom_histogram(binwidth = .05))
+
+marrangeGrob(countPCgraphs, ncol=2, nrow = 3)
+
+ratioPCgraphs <- map(names(train.final[,16:28]), ~ggplot(data=train.final, aes_string(x=.x))+ xlim(c(-7,7)) +
+  geom_histogram(binwidth = .05))
+
+marrangeGrob(ratioPCgraphs, ncol=2, nrow = 3)
+```
+The principal components are actually approximately Gaussian. However, they all have the exact same shape and mean. This is not good for classification. The event count, app count, and weekdays are all heavily skewed. This may be due to the fact that these features are not suitable as Gaussian distributions. Since these are count features, we should perhaps be using the multinomial distribution instead.
+
+```{r}
+# Compare the predictions with the actual probabilities
+pred1<-predict(fit1, valid1)
+predictions1 <- data.frame(pred1, pred1probs)
+predictions1 <- predictions1[,c("pred1", "M22.", "F23.", "F24.26")]
+
+# Compare the group predictions with the feature values
+valid1vars <- valid.final[,c("count.app", "count_event", "weekday")]
+predictions1 <- cbind(valid1$group, predictions1, valid1vars)
+```
+```{r}
+kable(predictions1[1:15,], caption = 'Predictions') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+```
+```{r}
+# Look at the mean and sd of the gaussian distribution it is using
+distrs <- cbind(fit1$tables$count.app, fit1$tables$count_event, fit1$tables$weekday)
+colnames(distrs)<-c("count.appmean", "count.appsd", "count_eventmean", "count_eventsd", "weekdaymean", "weekdaysd")
+
+# Now lot the Normal distributions
+# Distribution of the App Count
+caseqs <- matrix(nrow=100,ncol=12)
+ecseqs <- matrix(nrow=100,ncol=12)
+weseqs <- matrix(nrow=100,ncol=12)
+cadists <- matrix(nrow=100,ncol=12)
+ecdists <- matrix(nrow=100,ncol=12)
+wedists <- matrix(nrow=100,ncol=12)
+
+for (i in 1:12) {
+  caseqs[,i]<-seq(distrs[i,1]-4*distrs[i,2],distrs[i,1]+4*distrs[i,2], length=100)
+  cadists[,i]<-dnorm(caseqs[,i],mean = distrs[i,1], sd=distrs[i,2])
+  
+  ecseqs[,i]<-seq(distrs[i,3]-4*distrs[i,4],distrs[i,3]+4*distrs[i,4], length=100)
+  ecdists[,i]<-dnorm(ecseqs[,i],mean = distrs[i,3], sd=distrs[i,4])
+  
+  weseqs[,i]<-seq(distrs[i,5]-4*distrs[i,6],distrs[i,5]+4*distrs[i,6], length=100)
+  wedists[,i]<-dnorm(weseqs[,i],mean = distrs[i,5], sd=distrs[i,6])
+}
+
+caseqs<-c(caseqs[,1], caseqs[,2], caseqs[,3], caseqs[,4], caseqs[,5], caseqs[,6], caseqs[,7], caseqs[,8], caseqs[,9], caseqs[,10], caseqs[,11], caseqs[,12])
+
+caseqs<- data.frame('x'=caseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
+
+caseqs$y <- c(cadists[,1], cadists[,2], cadists[,3], cadists[,4], cadists[,5], cadists[,6], cadists[,7], cadists[,8], cadists[,9], cadists[,10], cadists[,11], cadists[,12])
+
+ecseqs<-c(ecseqs[,1], ecseqs[,2], ecseqs[,3], ecseqs[,4], ecseqs[,5], ecseqs[,6], ecseqs[,7], ecseqs[,8], ecseqs[,9], ecseqs[,10], ecseqs[,11], ecseqs[,12])
+
+ecseqs<- data.frame('x'=ecseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
+
+ecseqs$y <- c(ecdists[,1], ecdists[,2], ecdists[,3], ecdists[,4], ecdists[,5], ecdists[,6], ecdists[,7], ecdists[,8], ecdists[,9], ecdists[,10], ecdists[,11], ecdists[,12])
+
+
+weseqs<-c(weseqs[,1], weseqs[,2], weseqs[,3], weseqs[,4], weseqs[,5], weseqs[,6], weseqs[,7], weseqs[,8], weseqs[,9], weseqs[,10], weseqs[,11], weseqs[,12])
+
+weseqs<- data.frame('x'=weseqs, 'group'=c(rep(fit1$levels[1], 100), rep(fit1$levels[2], 100), rep(fit1$levels[3], 100), rep(fit1$levels[4], 100), rep(fit1$levels[5], 100), rep(fit1$levels[6], 100), rep(fit1$levels[7], 100), rep(fit1$levels[8], 100), rep(fit1$levels[9], 100), rep(fit1$levels[10], 100), rep(fit1$levels[11], 100), rep(fit1$levels[12], 100)))
+
+weseqs$y <- c(wedists[,1], wedists[,2], wedists[,3], wedists[,4], wedists[,5], wedists[,6], wedists[,7], wedists[,8], wedists[,9], wedists[,10], wedists[,11], wedists[,12])
+
+
+ggplot(caseqs, aes(x=x,y=y, color=group)) +
+  geom_point(position = 'jitter') +
+  ggtitle('App Count')
+
+ggplot(ecseqs, aes(x=x,y=y, color=group)) +
+  geom_point(position = 'jitter') +
+  ggtitle('Event Count')
+
+ggplot(weseqs, aes(x=x,y=y, color=group)) +
+  geom_point(position = 'jitter') +
+  ggtitle('Weekday Count')
+```
+```{r fig.height=8, fig.width=7, warning=FALSE}
+a<-ggplot(train.final, aes(x=group, y=count_event)) + 
+  geom_jitter(position=position_jitter(0.2)) +
+  ylim(c(0,1000))
+
+b<-ggplot(train.final, aes(x=group, y=count.app)) + 
+  geom_jitter(position=position_jitter(0.2))
+
+grid.arrange(a,b, ncol=1)
+```
+```{r fig.height=10, fig.width=12, warning=FALSE}
+graphs <- map(names(train.final[,-c(1,2,43,44)]), ~ggplot(data=train.final, aes_string(x='group', y=.x))+
+  geom_jitter(position = position_jitter(.2)))
+
+marrangeGrob(graphs, ncol=2, nrow = 3)
+```
+
+We can see that our features are actually do not have much variance between groups. The distributions are too similar to find clear classification boundaries.
+
+```{r fig.height=10, fig.width=12, warning=FALSE}
+names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
+graphs2 <- map(names(train.NoNANoM[,-c(1,2,3,4,66,67)]), ~ggplot(data=train.NoNANoM, aes_string(x='group', y=.x))+
+  geom_jitter(position = position_jitter(.2), na.rm = TRUE))
+
+marrangeGrob(graphs2, ncol=2, nrow = 3)
+```
+
+```{r}
+ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
+  geom_jitter(position = position_jitter(.2), na.rm = TRUE) +
+  ylim(c(0,900))
+```
+If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
+
+```{r fig.width=10, fig.height=10}
+ggplot(data = train.final) +
+  geom_point(aes(x=count_event, y = count.app, color=group)) +
+  xlim(c(0,800))
+
+plot_ly(train.NoNANoM, x = ~count_event, y = ~business.appCt, z = ~weekday, color = ~group) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'count_event', range=c(0,500)),
+                     yaxis = list(title = 'business.appCt', range=c(0,400)),
+                     zaxis = list(title = 'weekday', range=c(0,500))))
+```
+
+## Try creating categorical features
+```{r}
+fit1$tables$count.app
+traincateg <- train.NoNANoM %>%
+  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
+                            count.app > 13 & count.app < 50 ~ "med",
+                            count.app > 51 ~ "high"),
+         weekdaycat = case_when(weekday <= 13 ~ "low",
+                            weekday > 14 & weekday < 50 ~ "med",
+                            weekday > 51 ~ "high"),
+         eventcountcat = case_when(count_event <= 12 ~ "low",
+                            count_event > 13 & count_event < 50 ~ "med",
+                            count_event > 51 ~ "high"),
+         bussincountcat = case_when(business.appCt <= 100 ~ "low",
+                            business.appCt > 101 & business.appCt < 150 ~ "med",
+                            business.appCt > 151 ~ "high"))
+validcateg <- valid.NoNANoM %>%
+  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
+                            count.app > 13 & count.app < 50 ~ "med",
+                            count.app > 51 ~ "high"),
+         weekdaycat = case_when(weekday <= 13 ~ "low",
+                            weekday > 14 & weekday < 50 ~ "med",
+                            weekday > 51 ~ "high"),
+         eventcountcat = case_when(count_event <= 12 ~ "low",
+                            count_event > 13 & count_event < 50 ~ "med",
+                            count_event > 51 ~ "high"),
+         bussincountcat = case_when(business.appCt <= 100 ~ "low",
+                            business.appCt > 101 & business.appCt < 150 ~ "med",
+                            business.appCt > 151 ~ "high"))
+
+
+```
+```{r}
+train7<-traincateg[, c(2,68,69,70)]
+valid7<-validcateg[, c(2,68,69,70)]
+train7$appcountcat <- as.factor(train7$appcountcat)
+train7$weekdaycat <- as.factor(train7$weekdaycat)
+train7$eventcountcat <- as.factor(train7$eventcountcat)
+valid7$appcountcat <- as.factor(valid7$appcountcat)
+valid7$weekdaycat <- as.factor(valid7$weekdaycat)
+valid7$eventcountcat <- as.factor(valid7$eventcountcat)
+
+fit7<-naiveBayes(as.factor(group)~., data=train7)
+valid7$group<-as.factor(valid7$group)
+pred7<-predict(fit7, valid7)
+summary(pred7)
+#F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#2770      0    154      0     40      0    437    233      9      0    839    171 
+mean(pred7!=valid7$group)
+# 0.8934021
+
+#log-loss
+pred7probs <-predict(fit7, valid7, type = 'raw')
+pred7probsdat <- data.frame(valid7$group, pred7probs)
+logloss <- vector(length = length(pred7probsdat$valid7.group))
+for (i in 1:length(pred7probsdat$valid7.group)) {
+  clas=grep(str_split(paste(pred7probsdat$valid7.group[i]), '-')[[1]][1], names(pred7probsdat))
+  logloss[i] = log(pred7probsdat[i,clas])
+}
+-mean(logloss)
+```
+```{r}
+#features: count.app, count_event, weekday, group
+train8<-cbind(train.NoNANoM[,c(39,40,44,51)], train7)
+valid8<-cbind(valid.NoNANoM[,c(39,40,44,51)], valid7)
+fit8<-naiveBayes(as.factor(group)~., data=train8)
+valid8$group<-as.factor(valid8$group)
+pred8<-predict(fit8, valid8)
+pred8probs<-predict(fit8, valid8, type ='raw')
+summary(pred8)
+
+
+mean(pred8!=valid8$group)
+
+#log-loss
+pred8probsdat <- data.frame(valid8$group, pred8probs)
+logloss <- vector(length = length(pred8probsdat$valid8.group))
+for (i in 1:length(pred8probsdat$valid8.group)) {
+  clas=grep(str_split(paste(pred8probsdat$valid8.group[i]), '-')[[1]][1], names(pred8probsdat))
+  logloss[i] = log(pred8probsdat[i,clas])
+}
+-mean(logloss)
+```
+
+
+## Multinomial Distribution
+```{r eval=FALSE}
+bn = naive.bayes(train1$group, "group")
+pred = predict(bn, learning.test)
+table(pred, learning.test[, "A"])
+```
+
+## Random Forest
+
+```{r eval=FALSE}
+library(randomForest)
+set.seed(1223)
+fit.rf <- randomForest(as.factor(group)~., data = train7, na.action = na.omit)
+
+rf.pred <- predict(fit.rf, newdata=valid7)
+table(rf.pred, valid7$group)
+mean(rf.pred[is.na(rf.pred)==FALSE]!=valid7$group[is.na(rf.pred)==FALSE])
+importance(fit.rf)
+```
+
+
+
+## New Feature Ideas
+
+- The 
