@@ -59,6 +59,10 @@ valid.NoNANoM<-fread('validation_NoNA_NoMultc.csv', header = T, integer64 = 'cha
 # train.final<-train.final[, -11]
 ```
 
+
+## Naive Bayes: Start with small subset of features
+
+### Count.app, count_event, weekday, group
 ```{r}
 #features: count.app, count_event, weekday, group
 train1<-cbind(train.final[,6], train.final[,5], train.final[,37], train.final[,2])
@@ -76,8 +80,9 @@ mean(pred1!=valid1$group)
 #log-loss
 pred1probsdat <- data.frame(valid1$group, pred1probs)
 logloss <- vector(length = length(pred1probsdat$valid1.group))
+clas<-vector(length = length(pred1probsdat$valid1.group))
 for (i in 1:length(pred1probsdat$valid1.group)) {
-  clas=grep(str_split(paste(pred1probsdat$valid1.group[i]), '-')[[1]][1], names(pred1probsdat))
+  clas=grep(str_split(paste(pred1probsdat$valid1.group[i]), '-|\\+')[[1]][1], names(pred1probsdat))
   logloss[i] = log(pred1probsdat[i,clas])
 }
 -mean(logloss)
@@ -95,8 +100,9 @@ p<-ggplot(confusion1, aes(Var2, pred1)) +
 p
 ```
 
+### Count.app, count_event, weekday, group, 2016-04-30 -- 2016-05-07
 ```{r}
-#features: n_distinct(app_id), count_event, weekday, group, 2016-04-30--2016-05-07
+#features: count.app, count_event, weekday, group, 2016-04-30--2016-05-07
 train2<-cbind(train1, train.final[, c(seq(29, 36))])
 valid2<-cbind(valid1, valid.final[, c(seq(29, 36))])
 fit2<-naiveBayes(as.factor(group)~., data=train2)
@@ -108,7 +114,22 @@ summary(pred2)
 mean(pred2!=valid2$group)
 # 0.9204814
 
-#features: n_distinct(app_id), count_event, weekday, group, count.4_8, count.8_12, count.12_16, count.16-20, count.20-24
+#log-loss
+pred2probs <-predict(fit2, valid2, type = 'raw')
+pred2probsdat <- data.frame(valid2$group, pred2probs)
+logloss <- vector(length = length(pred2probsdat$valid2.group))
+for (i in 1:length(pred2probsdat$valid2.group)) {
+  clas=grep(str_split(paste(pred2probsdat$valid2.group[i]), '-|\\+')[[1]][1], names(pred2probsdat))
+  logloss[i] = log(pred2probsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+```
+Adding the date features made the classifications worse
+
+### Count.app, count_event, weekday, group, count.4_8 -- count.20-24
+```{r}
+#features: count.app, count_event, weekday, group, count.4_8, count.8_12, count.12_16, count.16-20, count.20-24
 train3<-cbind(train1, train.final[, c(seq(38, 42))])
 valid3<-cbind(valid1, valid.final[, c(seq(38, 42))])
 fit3<-naiveBayes(as.factor(group)~., data=train3)
@@ -120,7 +141,22 @@ summary(pred3)
 mean(pred3!=valid3$group)
 #0.9065119
 
-#features: n_distinct(app_id), count_event, weekday, group, count.pc
+#log-loss
+pred3probs <-predict(fit3, valid3, type = 'raw')
+pred3probsdat <- data.frame(valid3$group, pred3probs)
+logloss <- vector(length = length(pred3probsdat$valid3.group))
+for (i in 1:length(pred3probsdat$valid3.group)) {
+  clas=grep(str_split(paste(pred3probsdat$valid3.group[i]), '-|\\+')[[1]][1], names(pred3probsdat))
+  logloss[i] = log(pred3probsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+```
+Adding the hourly time features made the classifications worse
+
+### Count.app, count_event, weekday, group, count.pc
+```{r}
+#features: count.app, count_event, weekday, group, count.pc
 train4<-cbind(train1, train.final[, c(seq(20, 28))])
 valid4<-cbind(valid1, valid.final[, c(seq(20, 28))])
 fit4<-naiveBayes(as.factor(group)~., data=train4)
@@ -132,7 +168,21 @@ summary(pred4)
 mean(pred4!=valid4$group)
 #0.9314421
 
-#features:  n_distinct(app_id), count_event, weekday, group, ratio.pc
+#log-loss
+pred4probs <-predict(fit4, valid4, type = 'raw')
+pred4probsdat <- data.frame(valid4$group, pred4probs)
+logloss <- vector(length = length(pred4probsdat$valid4.group))
+for (i in 1:length(pred4probsdat$valid4.group)) {
+  clas=grep(str_split(paste(pred4probsdat$valid4.group[i]), '-|\\+')[[1]][1], names(pred4probsdat))
+  logloss[i] = log(pred4probsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+```
+
+### count.app, count_event, weekday, group, ratio.pc
+```{r}
+#features:  count.app, count_event, weekday, group, ratio.pc
 train5<-cbind(train1, train.final[, c(seq(16, 28))])
 valid5<-cbind(valid1, valid.final[, c(seq(16, 28))])
 fit5<-naiveBayes(as.factor(group)~., data=train5)
@@ -144,7 +194,21 @@ summary(pred5)
 mean(pred5!=valid5$group)
 # 0.9228455
 
-#features: n_distinct(app_id), count_event, weekday, group, longitude, latitude
+#log-loss
+pred5probs <-predict(fit5, valid5, type = 'raw')
+pred5probsdat <- data.frame(valid5$group, pred5probs)
+logloss <- vector(length = length(pred5probsdat$valid5.group))
+for (i in 1:length(pred5probsdat$valid5.group)) {
+  clas=grep(str_split(paste(pred5probsdat$valid5.group[i]), '-|\\+')[[1]][1], names(pred5probsdat))
+  logloss[i] = log(pred5probsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+```
+
+### count.app, count_event, weekday, group, longitude, latitude
+```{r}
+#features: count.app, count_event, weekday, group, longitude, latitude
 train6<-cbind(train1, train.final[, c(3,4)])
 valid6<-cbind(valid1, valid.final[, c(3,4)])
 fit6<-naiveBayes(as.factor(group)~., data=train6)
@@ -161,40 +225,16 @@ pred6probs <-predict(fit6, valid6, type = 'raw')
 pred6probsdat <- data.frame(valid6$group, pred6probs)
 logloss <- vector(length = length(pred6probsdat$valid6.group))
 for (i in 1:length(pred6probsdat$valid6.group)) {
-  clas=grep(str_split(paste(pred6probsdat$valid6.group[i]), '-')[[1]][1], names(pred6probsdat))
+  clas=grep(str_split(paste(pred6probsdat$valid6.group[i]), '-|\\+')[[1]][1], names(pred6probsdat))
   logloss[i] = log(pred6probsdat[i,clas])
 }
 -mean(logloss)
 ```
+The best model is with the features count.app, count_event, weekday, group, longitude, latitude, with missclassification rate of 89.4%.
 
-## Naive Bayes Model: No PCA
-```{r eval=FALSE}
-#features: count.app, count_event, weekday, group
-traint<-train.NoNANoM[]
-valid1<-cbind(valid.final[,6], valid.final[,5], valid.final[,37], valid.final[,2])
-fitt<-naiveBayes(as.factor(group)~., data=train.NoNANoM, na.action = na.pass)
-valid.NoNANoM$group<-as.factor(valid.NoNANoM$group)
-predt<-predict(fitt, valid.NoNANoM)
-summary(predt)
-# F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
-#1566      0      0      0      0      0   2136    283      9      0    428    231 
-mean(predt!=valid.NoNANoM$group)
-#[1] 0.9024285
-```
-```{r eval=FALSE}
-confusiont <- as.data.frame(table(predt, valid.NoNANoM$group))
-p<-ggplot(confusiont, aes(Var2, predt)) +
-  geom_tile(aes(fill = Freq), colour='gray') +
-  scale_fill_gradient(low='antiquewhite', high = 'purple') +
-  theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 9),
-        axis.text.y = element_text(size = 9),
-        axis.title = element_text(size = 10),
-        plot.title = element_text(size = 12)) +
-  labs(x= 'Observed', y= 'Predicted', title = 'Confusion Matrix')
-p
-```
+## Possible Causes of the Misclassifications
 
-## Naive Bayes Model: Check the Independence Assumption
+### Check the Independence Assumption
 ```{r fig.height=14, fig.width=14}
 train.final$group <- as.factor(train.final$group)
 corr <- cor(train.final[,-c(1,2,43,44)])
@@ -205,7 +245,7 @@ corrplot(corrM, type = 'lower', tl.col = 'black', tl.srt = 45)
 ```
 We can see from these two plots that there are some significant correlations between the features. The date features are all correlated with each other.
 
-## Check the Distributions: Are they Gaussian?
+### Check the Distributions: Are they really Normal?
 ```{r fig.height=10, fig.width=12}
 ggplot(data = train.final, aes(x = count_event, fill = group)) +
   geom_histogram(binwidth = 10) +
@@ -244,8 +284,22 @@ ratioPCgraphs <- map(names(train.final[,16:28]), ~ggplot(data=train.final, aes_s
 
 marrangeGrob(ratioPCgraphs, ncol=2, nrow = 3)
 ```
-The principal components are actually approximately Gaussian. However, they all have the exact same shape and mean. This is not good for classification. The event count, app count, and weekdays are all heavily skewed. This may be due to the fact that these features are not suitable as Gaussian distributions. Since these are count features, we should perhaps be using the multinomial distribution instead.
 
+```{r fig.height=10, fig.width=12, warning=FALSE}
+names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
+graphs3 <- map(names(train.NoNANoM[,-c(1,2,3,4,66,67)]), ~ggplot(data=train.NoNANoM, aes_string(x=.x))+
+  geom_histogram())
+
+marrangeGrob(graphs3, ncol=2, nrow = 3)
+```
+
+- The principal components are actually Gaussian.
+- The event count, app count, and weekdays are all heavily skewed. Since these are count features, we should perhaps be using the multinomial distribution instead.
+
+
+$$P(F23-|features)=\frac{P(feature1|F23-)*P(feature2|F23-)*\cdots *P(feature43|F23-)*P(F23-)}{P(features)}$$
+
+### Check between group distribution
 ```{r}
 # Compare the predictions with the actual probabilities
 pred1<-predict(fit1, valid1)
@@ -317,6 +371,8 @@ ggplot(weseqs, aes(x=x,y=y, color=group)) +
   geom_point(position = 'jitter') +
   ggtitle('Weekday Count')
 ```
+
+
 ```{r fig.height=8, fig.width=7, warning=FALSE}
 a<-ggplot(train.final, aes(x=group, y=count_event)) + 
   geom_jitter(position=position_jitter(0.2)) +
@@ -334,7 +390,6 @@ graphs <- map(names(train.final[,-c(1,2,43,44)]), ~ggplot(data=train.final, aes_
 marrangeGrob(graphs, ncol=2, nrow = 3)
 ```
 
-We can see that our features are actually do not have much variance between groups. The distributions are too similar to find clear classification boundaries.
 
 ```{r fig.height=10, fig.width=12, warning=FALSE}
 names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
@@ -343,13 +398,7 @@ graphs2 <- map(names(train.NoNANoM[,-c(1,2,3,4,66,67)]), ~ggplot(data=train.NoNA
 
 marrangeGrob(graphs2, ncol=2, nrow = 3)
 ```
-
-```{r}
-ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
-  geom_jitter(position = position_jitter(.2), na.rm = TRUE) +
-  ylim(c(0,900))
-```
-If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
+We can see that our features are actually do not really differ between groups. The distributions are too similar to find clear classification boundaries.
 
 ```{r fig.width=10, fig.height=10}
 ggplot(data = train.final) +
@@ -363,7 +412,17 @@ plot_ly(train.NoNANoM, x = ~count_event, y = ~business.appCt, z = ~weekday, colo
                      zaxis = list(title = 'weekday', range=c(0,500))))
 ```
 
-## Try creating categorical features
+## Potential Remedies
+
+### Transformation?
+```{r}
+ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
+  geom_jitter(position = position_jitter(.2), na.rm = TRUE) +
+  ylim(c(0,900))
+```
+If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
+
+### Try creating categorical features
 ```{r}
 fit1$tables$count.app
 traincateg <- train.NoNANoM %>%
@@ -424,6 +483,8 @@ for (i in 1:length(pred7probsdat$valid7.group)) {
 }
 -mean(logloss)
 ```
+
+
 ```{r}
 #features: count.app, count_event, weekday, group
 train8<-cbind(train.NoNANoM[,c(39,40,44,51)], train7)
@@ -448,16 +509,16 @@ for (i in 1:length(pred8probsdat$valid8.group)) {
 ```
 
 
-## Multinomial Distribution
+### Multinomial Distribution
 ```{r eval=FALSE}
 bn = naive.bayes(train1$group, "group")
 pred = predict(bn, learning.test)
 table(pred, learning.test[, "A"])
 ```
 
-## Random Forest
+### Random Forest
 
-```{r eval=FALSE}
+```{r}
 library(randomForest)
 set.seed(1223)
 fit.rf <- randomForest(as.factor(group)~., data = train7, na.action = na.omit)
@@ -468,8 +529,4 @@ mean(rf.pred[is.na(rf.pred)==FALSE]!=valid7$group[is.na(rf.pred)==FALSE])
 importance(fit.rf)
 ```
 
-
-
-## New Feature Ideas
-
-- The 
+### New Feature Ideas
