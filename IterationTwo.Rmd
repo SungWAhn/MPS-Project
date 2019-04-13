@@ -232,6 +232,30 @@ for (i in 1:length(pred6probsdat$valid6.group)) {
 ```
 The best model is with the features count.app, count_event, weekday, group, longitude, latitude, with missclassification rate of 89.4%.
 
+#try category.indicator
+```{r}
+#features: category.count
+fit7<-naiveBayes(as.factor(group)~., data=indicator_train)
+indicator_valid$group<-as.factor(indicator_valid$group)
+pred7<-predict(fit7, indicator_valid)
+summary(pred7)
+#F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#0      0      0      0     0       2487   468    0      236    1454    4      0
+mean(pred7!=indicator_valid$group)
+# 0.9024285
+
+#log-loss
+pred7probs <-predict(fit7, indicator_valid, type = 'raw')
+pred7probsdat <- data.frame(indicator_valid$group, pred7probs)
+logloss <- vector(length = length(pred7probsdat$indicator_valid.group))
+for (i in 1:length(pred7probsdat$indicator_valid.group)) {
+  clas=grep(str_split(paste(pred7probsdat$indicator_valid.group[i]), '-|\\+')[[1]][1], names(pred7probsdat))
+  logloss[i] = log(pred7probsdat[i,clas])
+}
+-mean(logloss)
+# 5.883481
+```
+
 ## Possible Causes of the Misclassifications
 
 ### Check the Independence Assumption
