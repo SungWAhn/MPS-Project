@@ -34,6 +34,7 @@ library(corrplot)
 library(bnlearn)
 library(gridExtra)
 library(plotly)
+library(MLmetrics)
 ```
 ```{r}
 versions<-sessionInfo()
@@ -651,6 +652,20 @@ mean(group.predict!=valid.gender.age$group)    # 0.8540726
 
 ### Add location in the model
 ```{r}
+# location with kNN imputation
+train.categ.loc <- cbind(traincateg, train.final[,3:4])
+valid.categ.loc <- cbind(validcateg, valid.final[,3:4])
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+
+fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
+pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
+summary(pred.categ.loc)
+mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8538577
+probs <-predict(fit.categ.loc, valid.categ.loc, type = 'raw')
+MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)
+
+# original location data with half missing values
 train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
 valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
 train.categ.loc$group <- as.factor(train.categ.loc$group)
@@ -660,28 +675,92 @@ fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
 pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
 summary(pred.categ.loc)
 mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
+probs <-predict(fit.categ.loc, valid.categ.loc, type = 'raw')
+MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)
 ```
 
 ### select categorical count features with most predictive power
 ```{r}
 misclasify <- rep(0,23)
+logloss <- rep(0,23)
 for (i in 1:23){
   train.temp <- traincateg[,c(i,24)]
   valid.temp <- validcateg[,c(i,24)]
   fit <- naiveBayes(group~., data=train.temp)
   pred <- predict(fit, valid.temp)
-  misclasify[i] <- mean(pred!=valid.categ.loc$group)
+  misclasify[i] <- mean(pred!=valid.temp$group)
+  # print(names(validcateg)[i])
+  # print(misclasify[i])
+  # print(summary(pred))
+  probs <-predict(fit, valid.temp, type = 'raw')
+  logloss[i] <- MultiLogLoss(y_pred = probs, y_true = valid.temp$group)
 }
-train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
-valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
-train.categ.loc$group <- as.factor(train.categ.loc$group)
-train.categ.loc$group <- as.factor(train.categ.loc$group)
-
-fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
-pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
-summary(pred.categ.loc)
-mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
+result <- cbind(names(validcateg)[1:23], misclasify, logloss)
+result
 ```
+
+```{r}
+# feature selection
+train.NB.3cat <- traincateg[,c(7,12,23,24)]
+valid.NB.3cat <- validcateg[,c(7,12,23,24)]
+train.NB.3cat$group <- as.factor(train.NB.3cat$group)
+valid.NB.3cat$group <- as.factor(valid.NB.3cat$group)
+
+fit.NB.3cat <- naiveBayes(group~., data=train.NB.3cat)
+pred.NB.3cat <- predict(fit.NB.3cat, valid.NB.3cat)
+summary(pred.NB.3cat)
+mean(pred.NB.3cat!=valid.NB.3cat$group)
+probs.NB.3cat <-predict(fit.NB.3cat, valid.NB.3cat, type = 'raw')     # 0.8486998
+MultiLogLoss(y_pred = probs.NB.3cat, y_true = valid.NB.3cat$group)    # 2.389098
+# "finance.appCtcat"      2.37625778986919
+# "lifestyle.appCtcat"    2.38209164080928
+# "vehicle.appCtcat"      2.38140327531365
+```
+
+```{r}
+misclasify2 <- rep(0,65)
+logloss2 <- rep(0,65)
+train.NoNANoM <- as.data.frame(train.NoNANoM)
+valid.NoNANoM <- as.data.frame(valid.NoNANoM)
+names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
+names(valid.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
+
+for (i in 3:67){
+  train.temp <- train.NoNANoM[,c(i,2)]
+  valid.temp <- valid.NoNANoM[,c(i,2)]
+  train.temp$group <- as.factor(train.temp$group)
+  valid.temp$group <- as.factor(valid.temp$group)
+  fit <- naiveBayes(group~., data=train.temp)
+  pred <- predict(fit, valid.temp)
+  misclasify2[i-2] <- mean(pred!=valid.temp$group)
+  # print(names(valid.NoNANoM)[i])
+  # print(misclasify2[i-2])
+  # print(summary(pred))
+  probs <-predict(fit, valid.temp, type = 'raw')
+  logloss2[i-2] <- MultiLogLoss(y_pred = probs, y_true = valid.temp$group)
+}
+result2 <- cbind(names(valid.NoNANoM)[3:67], misclasify2, logloss2)
+result2
+ 
+```
+
+```{r}
+# select features in the original dataset with misclassification rate <0.87
+features <- misclasify2[misclasify2[,2]<0.87,1]   # 30 features
+features <- misclasify2[misclasify2[,2]<0.86,1]   # 18 features
+features <- c(features, 'group')
+
+train.NBreduce <- train.NoNANoM[,features]
+valid.NBreduce <- valid.NoNANoM[,features]
+train.NBreduce$group <- as.factor(train.NBreduce$group)
+valid.NBreduce$group <- as.factor(valid.NBreduce$group)
+fit.NBreduce <- naiveBayes(group~., data=train.NBreduce)
+pred.NBreduce <- predict(fit, valid.NBreduce)
+summary(pred.NBreduce)
+mean(pred.NBreduce!=valid.NBreduce$group)
+```
+
+
 
 ### Start with all predictors
 
