@@ -617,3 +617,23 @@ Save the new datasets
 fwrite(train.final, "training_final.csv")
 fwrite(valid.final, "validation_final.csv")
 ```
+
+#change category.count into category.indicator 
+```{r}
+indicator_train <- fread('training_NoNA_NoMultc.csv',header=T,integer64='character')
+indicator_train[,7:29] <- replace(indicator_train[,7:29],indicator_train[,7:29]>0,1)
+indicator_train <- indicator_train[,c(2,7:29)]
+
+indicator_valid <- fread('validation_NoNA_NoMultc.csv',header=T,integer64='character')
+indicator_valid[,7:29] <- replace(indicator_valid[,7:29],indicator_valid[,7:29]>0,1)
+indicator_valid <- indicator_valid[,c(2,7:29)]
+```
+
+#change 23 into 3 category:business, game, other
+```{r}
+category_train <- fread('training_NoNA_NoMultc.csv',header=T,integer64='character')
+category_train <- category_train[,7:29]
+category_train$other_total <- rowSums(category_train[,-c(2,9)])
+category_train <- category_train[,c(2,9,24)]
+```
+
