@@ -34,6 +34,7 @@ library(corrplot)
 library(bnlearn)
 library(gridExtra)
 library(plotly)
+library(MLmetrics)
 ```
 ```{r}
 versions<-sessionInfo()
@@ -422,111 +423,254 @@ ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
 ```
 If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
 
+###Try all features
+```{r}
+traintotal <- train.NoNANoM[,-c(1,3,4,66,67)]
+validtotal <- valid.NoNANoM[,-c(1,3,4,66,67)]
+traintotal$group <- as.factor(traintotal$group)
+validtotal$group <- as.factor(validtotal$group)
+
+fitnb<-naiveBayes(group~., data=traintotal)
+prednb<-predict(fitnb, validtotal)
+summary(prednb)
+mean(prednb!=validtotal$group)
+
+#log-loss
+prednbprobs <-predict(fitnb, validtotal, type = 'raw')
+prednbprobsdat <- data.frame(validtotal$group, prednbprobs)
+logloss <- vector(length = length(prednbprobsdat$validtotal.group))
+for (i in 1:length(prednbprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(prednbprobsdat$validtotal.group[i]), '-')[[1]][1], names(prednbprobsdat))
+  logloss[i] = log(prednbprobsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+
+MultiLogLoss(y_pred = prednbprobs, y_true = validtotal$group)
+```
+
+
+
 ### Try creating categorical features
 ```{r}
-fit1$tables$count.app
-traincateg <- train.NoNANoM %>%
-  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
-                            count.app > 13 & count.app < 50 ~ "med",
-                            count.app > 51 ~ "high"),
-         weekdaycat = case_when(weekday <= 13 ~ "low",
-                            weekday > 14 & weekday < 50 ~ "med",
-                            weekday > 51 ~ "high"),
-         eventcountcat = case_when(count_event <= 12 ~ "low",
-                            count_event > 13 & count_event < 50 ~ "med",
-                            count_event > 51 ~ "high"),
-         bussincountcat = case_when(business.appCt <= 100 ~ "low",
-                            business.appCt > 101 & business.appCt < 150 ~ "med",
-                            business.appCt > 151 ~ "high"))
-validcateg <- valid.NoNANoM %>%
-  mutate(appcountcat = case_when(count.app <= 12 ~ "low",
-                            count.app > 13 & count.app < 50 ~ "med",
-                            count.app > 51 ~ "high"),
-         weekdaycat = case_when(weekday <= 13 ~ "low",
-                            weekday > 14 & weekday < 50 ~ "med",
-                            weekday > 51 ~ "high"),
-         eventcountcat = case_when(count_event <= 12 ~ "low",
-                            count_event > 13 & count_event < 50 ~ "med",
-                            count_event > 51 ~ "high"),
-         bussincountcat = case_when(business.appCt <= 100 ~ "low",
-                            business.appCt > 101 & business.appCt < 150 ~ "med",
-                            business.appCt > 151 ~ "high"))
+# Obtain the app count features we want to bin
+training <- as.data.frame(train.NoNANoM[,7:29])
+# Stack the app count features into one long vector
+counts <- stack(training)
+# Calculate the quantiles
+quantiles <- quantile(counts[,1], c(.14,.2857,.4286,.5714,.7143,.8571))
+quantiles
+
+# Construct the categorical features based on the quantiles
+# training[training==0] <- 0
+# training[training>0 & training <= 1] <- 1
+# training[training>1 & training <= 14] <- 2
+# training[training>14 & training <= 60] <- 3
+# training[training>60] <- 4
+
+training[training==0] <- 0
+training[training>0 & training <= 1] <- 1
+training[training>1 & training <= 14] <- 2
+training[training>14 & training <= 27] <- 3
+training[training>27 & training <= 70] <- 4
+training[training>70] <- 5
+# Convert the categorical into factor variables
+for (i in 1:23) {
+ training[,i] <- as.factor(training[,i]) 
+}
+for (i in 1:23) {
+  names(training)[i] <- paste0(names(training)[i],'cat')
+}
+
+# The levels are not consistent across features: make them all 5
+for (i in 1:23) {
+  training[,i] <- factor(training[,i], levels = c("0","1","2","3","4","5"))
+}
+
+# Do the same thing as above to the validation dataset
+validation <- as.data.frame(valid.NoNANoM[,7:29])
 
 
+# validation[validation==0] <- 0
+# validation[validation>0 & validation <= 1] <- 1
+# validation[validation>1 & validation <= 14] <- 2
+# validation[validation>14 & validation <= 60] <- 3
+# validation[validation>60] <- 4
+
+validation[validation==0] <- 0
+validation[validation>0 & validation <= 1] <- 1
+validation[validation>1 & validation <= 14] <- 2
+validation[validation>14 & validation <= 27] <- 3
+validation[validation>27 & validation <= 70] <- 4
+validation[validation>70] <- 5
+
+for (i in 1:23) {
+ validation[,i] <- as.factor(validation[,i]) 
+}
+for (i in 1:23) {
+  names(validation)[i] <- paste0(names(validation)[i],'cat')
+}
+
+for (i in 1:23) {
+  validation[,i] <- factor(validation[,i], levels = c("0","1","2","3","4","5"))
+}
+
+validation$group <- valid.NoNANoM$group
+training$group <- train.NoNANoM$group
 ```
 ```{r}
-train7<-traincateg[, c(2,68,69,70)]
-valid7<-validcateg[, c(2,68,69,70)]
-train7$appcountcat <- as.factor(train7$appcountcat)
-train7$weekdaycat <- as.factor(train7$weekdaycat)
-train7$eventcountcat <- as.factor(train7$eventcountcat)
-valid7$appcountcat <- as.factor(valid7$appcountcat)
-valid7$weekdaycat <- as.factor(valid7$weekdaycat)
-valid7$eventcountcat <- as.factor(valid7$eventcountcat)
-
-fit7<-naiveBayes(as.factor(group)~., data=train7)
-valid7$group<-as.factor(valid7$group)
-pred7<-predict(fit7, valid7)
-summary(pred7)
-#F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
-#2770      0    154      0     40      0    437    233      9      0    839    171 
-mean(pred7!=valid7$group)
-# 0.8934021
+traincateg<-training
+validcateg<-validation
+traincateg$group <- as.factor(traincateg$group)
+validcateg$group <- as.factor(validcateg$group)
+names(traincateg)[18] <- 'socialnetworking.appCtcat'
+names(validcateg)[18] <- 'socialnetworking.appCtcat'
+fitcateg<-naiveBayes(group~., data=traincateg)
+predcateg<-predict(fitcateg, validcateg)
+summary(predcateg)
+mean(predcateg!=validcateg$group)
 
 #log-loss
-pred7probs <-predict(fit7, valid7, type = 'raw')
-pred7probsdat <- data.frame(valid7$group, pred7probs)
-logloss <- vector(length = length(pred7probsdat$valid7.group))
-for (i in 1:length(pred7probsdat$valid7.group)) {
-  clas=grep(str_split(paste(pred7probsdat$valid7.group[i]), '-')[[1]][1], names(pred7probsdat))
-  logloss[i] = log(pred7probsdat[i,clas])
+predcategprobs <-predict(fitcateg, validcateg, type = 'raw')
+predcategprobsdat <- data.frame(validcateg$group, predcategprobs)
+logloss <- vector(length = length(predcategprobsdat$validcateg.group))
+for (i in 1:length(predcategprobsdat$validcateg.group)) {
+  clas=grep(str_split(paste(predcategprobsdat$validcateg.group[i]), '-')[[1]][1], names(predcategprobsdat))
+  logloss[i] = log(predcategprobsdat[i,clas])
+}
+-mean(logloss)
+# 2.953445
+
+MultiLogLoss(y_pred = predcategprobs, y_true = validcateg$group)
+```
+```{r}
+# Predict gender only
+group <- traincateg$group
+gender <- substr(group, 1, 1)
+traingender <- traincateg
+traingender$group <- gender
+
+group <- validcateg$group
+gender <- substr(group, 1, 1)
+validgender <- validcateg
+validgender$group <- gender
+
+
+traingender$group <- as.factor(traingender$group)
+validgender$group <- as.factor(validgender$group)
+names(traingender)[18] <- 'socialnetworking.appCt'
+names(validgender)[18] <- 'socialnetworking.appCt'
+fitgender<-naiveBayes(group~., data=traingender)
+predgender<-predict(fitgender, validgender)
+summary(predgender)
+mean(predgender!=validgender$group)
+
+#log-loss
+predgenderprobs <-predict(fitgender, validgender, type = 'raw')
+predgenderprobsdat <- data.frame(validgender$group, predgenderprobs)
+logloss <- vector(length = length(predgenderprobsdat$validgender.group))
+for (i in 1:length(predgenderprobsdat$validgender.group)) {
+  clas=grep(str_split(paste(predgenderprobsdat$validgender.group[i]), '-')[[1]][1], names(predgenderprobsdat))
+  logloss[i] = log(predgenderprobsdat[i,clas])
 }
 -mean(logloss)
 ```
 
-
-```{r}
-#features: count.app, count_event, weekday, group
-train8<-cbind(train.NoNANoM[,c(39,40,44,51)], train7)
-valid8<-cbind(valid.NoNANoM[,c(39,40,44,51)], valid7)
-fit8<-naiveBayes(as.factor(group)~., data=train8)
-valid8$group<-as.factor(valid8$group)
-pred8<-predict(fit8, valid8)
-pred8probs<-predict(fit8, valid8, type ='raw')
-summary(pred8)
-
-
-mean(pred8!=valid8$group)
-
-#log-loss
-pred8probsdat <- data.frame(valid8$group, pred8probs)
-logloss <- vector(length = length(pred8probsdat$valid8.group))
-for (i in 1:length(pred8probsdat$valid8.group)) {
-  clas=grep(str_split(paste(pred8probsdat$valid8.group[i]), '-')[[1]][1], names(pred8probsdat))
-  logloss[i] = log(pred8probsdat[i,clas])
-}
--mean(logloss)
-```
-
-
-### Multinomial Distribution
-```{r eval=FALSE}
-bn = naive.bayes(train1$group, "group")
-pred = predict(bn, learning.test)
-table(pred, learning.test[, "A"])
-```
-
-### Random Forest
-
+### Start with all predictors
+#### RF
 ```{r}
 library(randomForest)
-set.seed(1223)
-fit.rf <- randomForest(as.factor(group)~., data = train7, na.action = na.omit)
+names(train.NoNANoM)[24] <- "socialnetworking.appCt"
+names(train.NoNANoM)[46] <- "socialnetworking.isactiveRat"
+names(valid.NoNANoM)[24] <- "socialnetworking.appCt"
+names(valid.NoNANoM)[46] <- "socialnetworking.isactiveRat"
 
-rf.pred <- predict(fit.rf, newdata=valid7)
-table(rf.pred, valid7$group)
-mean(rf.pred[is.na(rf.pred)==FALSE]!=valid7$group[is.na(rf.pred)==FALSE])
-importance(fit.rf)
+traintotal <- cbind(traincateg[,1:23],train.NoNANoM[,-c(1,3,4,66,67)])
+validtotal <- cbind(validcateg[,1:23],valid.NoNANoM[,-c(1,3,4,66,67)])
+traintotal$group <- as.factor(traintotal$group)
+validtotal$group <- as.factor(validtotal$group)
+set.seed(1223)
+fit.rf <- randomForest(as.factor(group)~., data = traintotal, na.action = na.omit)
+
+rf.pred <- predict(fit.rf, newdata=validtotal)
+table(rf.pred, validtotal$group)
+mean(rf.pred[is.na(rf.pred)==FALSE]!=validtotal$group[is.na(rf.pred)==FALSE])
+
+predrfprobs <-predict(fit.rf, validtotal, type = 'prob')
+predrfprobsdat <- data.frame(validtotal$group, predrfprobs)
+logloss <- vector(length = length(predrfprobsdat$validtotal.group))
+for (i in 1:length(predrfprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(predrfprobsdat$validtotal.group[i]), '-')[[1]][1], names(predrfprobsdat))
+  logloss[i] = log(predrfprobsdat[i,clas])
+}
+-mean(logloss)
+
+ginis<-importance(fit.rf)
+ginis<-data.frame('gini'=ginis[,1], 'categ' = rownames(ginis))
+arrange(ginis, desc(gini))
 ```
+
+### SVM
+```{r}
+library(e1071)
+fit.svm <- svm(as.factor(group) ~ . , traintotal)
+pred_svm <- predict(model_svm, validtotal)
+mean(as.character(pred_svm) != as.character(validtotal$group))
+table(pred_svm, validtotal$group)
+
+predsvmprobs <-predict(fit.svm, validtotal, decision.values = T)
+predsvmprobsdat <- data.frame(validtotal$group, predsvmprobs)
+logloss <- vector(length = length(predsvmprobsdat$validtotal.group))
+for (i in 1:length(predsvmprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(predsvmprobsdat$validtotal.group[i]), '-')[[1]][1], names(predsvmprobsdat))
+  logloss[i] = log(predsvmprobsdat[i,clas])
+}
+-mean(logloss)
+```
+
+### Logistic
+```{r}
+train_log<- traintotal
+train_log<-na.omit(train_log)
+valid_log<-validtotal
+valid_log<-na.omit(valid_log)
+
+require(nnet)
+model_log <- multinom(group ~ ., data = traintotal, MaxNWts = 1000000, model = TRUE)
+pred_log<-predict(model_log,valid_log)
+pred_log_score<-predict (model_log,valid_log, 'probs')
+mean(as.character(pred_log) != as.character(valid_log$group))
+table(pred_log, valid_log$group)
+```
+
+
+
+#### Second
+```{r}
+traintotal <- cbind(traincateg[,-c(16,24)],train.NoNANoM[,-c(1,3,4,66,67)])
+validtotal <- cbind(validcateg[,-c(16,24)],valid.NoNANoM[,-c(1,3,4,66,67)])
+traintotal$group <- as.factor(traintotal$group)
+validtotal$group <- as.factor(validtotal$group)
+set.seed(1223)
+fit.rf <- randomForest(as.factor(group)~., data = traintotal, na.action = na.omit)
+
+rf.pred <- predict(fit.rf, newdata=validtotal)
+table(rf.pred, validtotal$group)
+mean(rf.pred[is.na(rf.pred)==FALSE]!=validtotal$group[is.na(rf.pred)==FALSE])
+
+predrfprobs <-predict(fit.rf, validtotal, type = 'prob')
+predrfprobsdat <- data.frame(validtotal$group, predrfprobs)
+logloss <- vector(length = length(predrfprobsdat$validtotal.group))
+for (i in 1:length(predrfprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(predrfprobsdat$validtotal.group[i]), '-')[[1]][1], names(predrfprobsdat))
+  logloss[i] = log(predrfprobsdat[i,clas])
+}
+-mean(logloss)
+
+ginis<-importance(fit.rf)
+ginis<-data.frame('gini'=ginis[,1], 'categ' = rownames(ginis))
+arrange(ginis, desc(gini))
+```
+
 
 ### New Feature Ideas
