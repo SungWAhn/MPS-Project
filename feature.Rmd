@@ -632,7 +632,7 @@ fwrite(indicator_train, "indicator_train.csv")
 fwrite(indicator_valid, "indicator_valid.csv")
 ```
 
-#change 23 into 3 category:business, game, other
+#change 23 categories into 3:business, game, other
 ```{r}
 category_train <- fread('training_NoNA_NoMultc.csv',header=T,integer64='character')
 category_train <- category_train[,c(2,7:29)]
