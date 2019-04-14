@@ -684,6 +684,26 @@ summary(pred.categ.loc)
 mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
 ```
 
+### select categorical count features with most predictive power
+```{r}
+misclasify <- rep(0,23)
+for (i in 1:23){
+  train.temp <- traincateg[,c(i,24)]
+  valid.temp <- validcateg[,c(i,24)]
+  fit <- naiveBayes(group~., data=train.temp)
+  pred <- predict(fit, valid.temp)
+  misclasify[i] <- mean(pred!=valid.categ.loc$group)
+}
+train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
+valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+
+fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
+pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
+summary(pred.categ.loc)
+mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
+```
 
 ### Start with all predictors
 #### RF
