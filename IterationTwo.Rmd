@@ -474,6 +474,32 @@ ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
 ```
 If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
 
+### Try all features
+```{r}
+traintotal <- train.NoNANoM[,-c(1,3,4,66,67)]
+validtotal <- valid.NoNANoM[,-c(1,3,4,66,67)]
+traintotal$group <- as.factor(traintotal$group)
+validtotal$group <- as.factor(validtotal$group)
+
+fitnb<-naiveBayes(group~., data=traintotal)
+prednb<-predict(fitnb, validtotal)
+summary(prednb)
+mean(prednb!=validtotal$group)
+
+#log-loss
+prednbprobs <-predict(fitnb, validtotal, type = 'raw')
+prednbprobsdat <- data.frame(validtotal$group, prednbprobs)
+logloss <- vector(length = length(prednbprobsdat$validtotal.group))
+for (i in 1:length(prednbprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(prednbprobsdat$validtotal.group[i]), '-')[[1]][1], names(prednbprobsdat))
+  logloss[i] = log(prednbprobsdat[i,clas])
+}
+-mean(logloss)
+-mean(logloss[is.infinite(logloss)==FALSE])
+
+MultiLogLoss(y_pred = prednbprobs, y_true = validtotal$group)
+```
+
 ### Try creating categorical features
 ```{r}
 fit1$tables$count.app
@@ -506,6 +532,8 @@ validcateg <- valid.NoNANoM %>%
 
 
 ```
+
+### Using transformed categorical features to make predictions
 ```{r}
 train7<-traincateg[, c(2,68,69,70)]
 valid7<-validcateg[, c(2,68,69,70)]
@@ -525,6 +553,17 @@ summary(pred7)
 mean(pred7!=valid7$group)
 # 0.8934021
 
+traincateg<-training
+validcateg<-validation
+traincateg$group <- as.factor(traincateg$group)
+validcateg$group <- as.factor(validcateg$group)
+names(traincateg)[18] <- 'socialnetworking.appCtcat'
+names(validcateg)[18] <- 'socialnetworking.appCtcat'
+fitcateg<-naiveBayes(group~., data=traincateg)
+predcateg<-predict(fitcateg, validcateg)
+summary(predcateg)
+mean(predcateg!=validcateg$group)   # 0.8540726
+
 #log-loss
 pred7probs <-predict(fit7, valid7, type = 'raw')
 pred7probsdat <- data.frame(valid7$group, pred7probs)
@@ -536,6 +575,95 @@ for (i in 1:length(pred7probsdat$valid7.group)) {
 -mean(logloss)
 ```
 
+
+### Predict gender and age separately
+```{r}
+# Predict gender only
+group <- traincateg$group
+gender <- substr(group, 1, 1)
+traingender <- cbind(traincateg, gender)
+
+group <- validcateg$group
+gender <- substr(group, 1, 1)
+validgender <- cbind(validcateg, gender)
+
+
+traingender$gender <- as.factor(traingender$gender)
+validgender$gender <- as.factor(validgender$gender)
+names(traingender)[18] <- 'socialnetworking.appCt'
+names(validgender)[18] <- 'socialnetworking.appCt'
+fitgender<-naiveBayes(gender~., data=traingender[,-24])
+predgender<-predict(fitgender, validgender[,-24])
+summary(predgender)
+mean(predgender!=validgender$gender)    # 0.4167204
+validgender <- cbind(validgender, gender.predict=predgender)
+
+
+# predict age further
+# separate male and female groups
+train.female <- traingender[traingender$gender=='F',]   # 6452
+train.male <- traingender[traingender$gender=='M',]     # 12142
+valid.female <- validgender[validgender$gender=='F',]   # 1571
+valid.male <- validgender[validgender$gender=='M',]     # 3082
+
+# predict age for female
+group <- train.female$group
+age <- substr(group, 2, 10)
+train.female <- cbind(train.female, age)
+
+group <- valid.female$group
+age <- substr(group, 2, 10)
+valid.female <- cbind(valid.female, age)
+
+train.female$age <- as.factor(train.female$age)
+valid.female$age <- as.factor(valid.female$age)
+
+fit.female.age <- naiveBayes(age~., data=train.female[,-c(24,25)])
+pred.female.age <- predict(fit.female.age, valid.female[,-c(24,25,26)])
+summary(pred.female.age)
+mean(pred.female.age!=valid.female$age)    # 0.7536601
+valid.female <- cbind(valid.female, age.predict=pred.female.age)
+
+
+# predict age for female
+group <- train.male$group
+age <- substr(group, 2, 10)
+train.male <- cbind(train.male, age)
+
+group <- valid.male$group
+age <- substr(group, 2, 10)
+valid.male <- cbind(valid.male, age)
+
+train.male$age <- as.factor(train.male$age)
+valid.male$age <- as.factor(valid.male$age)
+
+fit.male.age <- naiveBayes(age~., data=train.male[,-c(24,25)])
+pred.male.age <- predict(fit.male.age, valid.male[,-c(24,25,26)])
+summary(pred.male.age)
+mean(pred.male.age!=valid.male$age)    # 0.7787151
+valid.male <- cbind(valid.male, age.predict=pred.male.age)
+
+# overall misclassification rate
+valid.gender.age <- rbind(valid.female, valid.male)
+group.predict <- paste(valid.gender.age$gender.predict, valid.gender.age$age.predict, sep='')
+mean(group.predict!=valid.gender.age$group)    # 0.8540726
+```
+
+### Add location in the model
+```{r}
+train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
+valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+
+fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
+pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
+summary(pred.categ.loc)
+mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
+```
+
+
+### Start with all predictors
 
 ```{r}
 #features: count.app, count_event, weekday, group
