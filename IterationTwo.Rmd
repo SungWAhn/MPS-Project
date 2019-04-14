@@ -663,20 +663,20 @@ pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
 summary(pred.categ.loc)
 mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8538577
 probs <-predict(fit.categ.loc, valid.categ.loc, type = 'raw')
-MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)
+MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)    # 3.103822
 
 # original location data with half missing values
 train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
 valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
 train.categ.loc$group <- as.factor(train.categ.loc$group)
-train.categ.loc$group <- as.factor(train.categ.loc$group)
+train.categ.loc$group <- as.factor(train.categ.loc$group) 
 
 fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
 pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
 summary(pred.categ.loc)
 mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
 probs <-predict(fit.categ.loc, valid.categ.loc, type = 'raw')
-MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)
+MultiLogLoss(y_pred = probs, y_true = valid.categ.loc$group)    # 3.071154
 ```
 
 ### select categorical count features with most predictive power
