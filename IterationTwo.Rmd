@@ -475,7 +475,7 @@ ggplot(data=train.NoNANoM, aes_string(x='group', y='business.appCt'))+
 ```
 If we zoom in onto a smaller subsection of app count, there does seem to be some variation. In the female groups, there are generally more smaller numbers, while the male groups generally seem to have higher count numbers. Naive Bayes however doesn't seem to pick this up. Maybe engineer a different feature that can pick this up. If we make these counts into categorical features, binning the counts into low, medium, and high, the Naive Bayes may be able to pick up more differences.
 
-###Try all features
+### Try all features
 ```{r}
 traintotal <- train.NoNANoM[,-c(1,3,4,66,67)]
 validtotal <- valid.NoNANoM[,-c(1,3,4,66,67)]
@@ -570,6 +570,8 @@ for (i in 1:23) {
 validation$group <- valid.NoNANoM$group
 training$group <- train.NoNANoM$group
 ```
+
+### Using transformed categorical features to make predictions
 ```{r}
 traincateg<-training
 validcateg<-validation
@@ -595,6 +597,8 @@ for (i in 1:length(predcategprobsdat$validcateg.group)) {
 
 MultiLogLoss(y_pred = predcategprobs, y_true = validcateg$group)
 ```
+
+### Predict gender and age separately
 ```{r}
 # Predict gender only
 group <- traincateg$group
@@ -665,8 +669,21 @@ valid.male <- cbind(valid.male, age.predict=pred.male.age)
 valid.gender.age <- rbind(valid.female, valid.male)
 group.predict <- paste(valid.gender.age$gender.predict, valid.gender.age$age.predict, sep='')
 mean(group.predict!=valid.gender.age$group)    # 0.8540726
-
 ```
+
+### Add location in the model
+```{r}
+train.categ.loc <- cbind(traincateg, train.NoNANoM[,3:4])
+valid.categ.loc <- cbind(validcateg, valid.NoNANoM[,3:4])
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+train.categ.loc$group <- as.factor(train.categ.loc$group)
+
+fit.categ.loc <- naiveBayes(group~., data=train.categ.loc)
+pred.categ.loc <- predict(fit.categ.loc, valid.categ.loc)
+summary(pred.categ.loc)
+mean(pred.categ.loc!=valid.categ.loc$group)   # 0.8527832
+```
+
 
 ### Start with all predictors
 #### RF
