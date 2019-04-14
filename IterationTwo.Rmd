@@ -552,7 +552,7 @@ names(validcateg)[18] <- 'socialnetworking.appCtcat'
 fitcateg<-naiveBayes(group~., data=traincateg)
 predcateg<-predict(fitcateg, validcateg)
 summary(predcateg)
-mean(predcateg!=validcateg$group)
+mean(predcateg!=validcateg$group)   # 0.8540726
 
 #log-loss
 predcategprobs <-predict(fitcateg, validcateg, type = 'raw')
@@ -571,33 +571,73 @@ MultiLogLoss(y_pred = predcategprobs, y_true = validcateg$group)
 # Predict gender only
 group <- traincateg$group
 gender <- substr(group, 1, 1)
-traingender <- traincateg
-traingender$group <- gender
+traingender <- cbind(traincateg, gender)
 
 group <- validcateg$group
 gender <- substr(group, 1, 1)
-validgender <- validcateg
-validgender$group <- gender
+validgender <- cbind(validcateg, gender)
 
 
-traingender$group <- as.factor(traingender$group)
-validgender$group <- as.factor(validgender$group)
+traingender$gender <- as.factor(traingender$gender)
+validgender$gender <- as.factor(validgender$gender)
 names(traingender)[18] <- 'socialnetworking.appCt'
 names(validgender)[18] <- 'socialnetworking.appCt'
-fitgender<-naiveBayes(group~., data=traingender)
-predgender<-predict(fitgender, validgender)
+fitgender<-naiveBayes(gender~., data=traingender[,-24])
+predgender<-predict(fitgender, validgender[,-24])
 summary(predgender)
-mean(predgender!=validgender$group)
+mean(predgender!=validgender$gender)    # 0.4167204
+validgender <- cbind(validgender, gender.predict=predgender)
 
-#log-loss
-predgenderprobs <-predict(fitgender, validgender, type = 'raw')
-predgenderprobsdat <- data.frame(validgender$group, predgenderprobs)
-logloss <- vector(length = length(predgenderprobsdat$validgender.group))
-for (i in 1:length(predgenderprobsdat$validgender.group)) {
-  clas=grep(str_split(paste(predgenderprobsdat$validgender.group[i]), '-')[[1]][1], names(predgenderprobsdat))
-  logloss[i] = log(predgenderprobsdat[i,clas])
-}
--mean(logloss)
+
+# predict age further
+# separate male and female groups
+train.female <- traingender[traingender$gender=='F',]   # 6452
+train.male <- traingender[traingender$gender=='M',]     # 12142
+valid.female <- validgender[validgender$gender=='F',]   # 1571
+valid.male <- validgender[validgender$gender=='M',]     # 3082
+
+# predict age for female
+group <- train.female$group
+age <- substr(group, 2, 10)
+train.female <- cbind(train.female, age)
+
+group <- valid.female$group
+age <- substr(group, 2, 10)
+valid.female <- cbind(valid.female, age)
+
+train.female$age <- as.factor(train.female$age)
+valid.female$age <- as.factor(valid.female$age)
+
+fit.female.age <- naiveBayes(age~., data=train.female[,-c(24,25)])
+pred.female.age <- predict(fit.female.age, valid.female[,-c(24,25,26)])
+summary(pred.female.age)
+mean(pred.female.age!=valid.female$age)    # 0.7536601
+valid.female <- cbind(valid.female, age.predict=pred.female.age)
+
+
+# predict age for female
+group <- train.male$group
+age <- substr(group, 2, 10)
+train.male <- cbind(train.male, age)
+
+group <- valid.male$group
+age <- substr(group, 2, 10)
+valid.male <- cbind(valid.male, age)
+
+train.male$age <- as.factor(train.male$age)
+valid.male$age <- as.factor(valid.male$age)
+
+fit.male.age <- naiveBayes(age~., data=train.male[,-c(24,25)])
+pred.male.age <- predict(fit.male.age, valid.male[,-c(24,25,26)])
+summary(pred.male.age)
+mean(pred.male.age!=valid.male$age)    # 0.7787151
+valid.male <- cbind(valid.male, age.predict=pred.male.age)
+
+# overall misclassification rate
+valid.gender.age <- rbind(valid.female, valid.male)
+group.predict <- paste(valid.gender.age$gender.predict, valid.gender.age$age.predict, sep='')
+mean(group.predict!=valid.gender.age$group)    # 0.8540726
+
 ```
 
 ### Start with all predictors
