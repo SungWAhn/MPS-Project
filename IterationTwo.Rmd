@@ -144,22 +144,22 @@ for (i in 1:length(predsvmprobsdat$validtotal.group)) {
 
 ### Logistic
 ```{r}
-train_log<- traincateg
+train_log<- traintotal
 train_log<-na.omit(train_log)
-valid_log<-validcateg
+valid_log<-validtotal
 valid_log<-na.omit(valid_log)
 
-model_log <- multinom(group ~ ., data = traincateg, MaxNWts = 100000, model = TRUE, probability = TRUE)
+model_log <- multinom(group ~ ., data = traintotal, MaxNWts = 100000, model = TRUE, probability = TRUE)
 pred_log<-predict(model_log,valid_log)
 pred_log_score<-predict (model_log,valid_log, 'probs')
 mean(as.character(pred_log) != as.character(valid_log$group))
 table(pred_log, valid_log$group)
 # coef(model_log)
 
-predlogprobsdat <- data.frame(validcateg$group, pred_log_score)
-logloss <- vector(length = length(predlogprobsdat$validcateg.group))
-for (i in 1:length(predlogprobsdat$validcateg.group)) {
-  clas=grep(str_split(paste(predlogprobsdat$validcateg.group[i]), '-')[[1]][1], names(predlogprobsdat))
+predlogprobsdat <- data.frame(validtotal$group, pred_log_score)
+logloss <- vector(length = length(predlogprobsdat$validtotal.group))
+for (i in 1:length(predlogprobsdat$validtotal.group)) {
+  clas=grep(str_split(paste(predlogprobsdat$validtotal.group[i]), '-')[[1]][1], names(predlogprobsdat))
   logloss[i] = log(predlogprobsdat[i,clas])
 }
 -mean(logloss)
@@ -167,8 +167,8 @@ for (i in 1:length(predlogprobsdat$validcateg.group)) {
 
 ### Performance
 ```{r results='asis'}
-performancecateg <-data.frame('features' = c('App Ct categorical features','App Ct categorical features','App Ct categorical features','App Ct categorical features'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(2.711981,2.499703,2.307586,2.300363), 'Misclass' = c( 0.8441865,0.8295723,0.8269933,0.815173))
-kable(performancecateg, caption = 'Performance of App Ct Categorical Variables') %>%
+performancecateg <-data.frame('features' = c('Count features','Count features','Count features','Count features'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(21.06245,2.264044,2.374288,2.374288), 'Misclass' = c(0.9183323,0.7964754,0.8214055,0.8132388))
+kable(performancecateg, caption = 'Performance of Count Variables') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
 
@@ -730,9 +730,210 @@ for (i in 1:22) {
 
 ```
 
+## Weekday
 ```{r}
-traincateg<-cbind(training, trainingIsactive)
-validcateg<-cbind(validation, validIsactive)
+# Obtain the app count features we want to bin
+trainingWeekday <- as.data.frame(train.NoNANoM[,60])
+# Stack the app count features into one long vector
+counts <- stack(trainingWeekday)
+# Calculate the quantiles
+quantiles <- quantile(counts[,1], c(.25,.5,.75))
+quantiles
+
+# Construct the categorical features based on the quantiles
+trainingWeekday[trainingWeekday==0] <- 0
+trainingWeekday[trainingWeekday>0 & trainingWeekday <= 1] <- 1
+trainingWeekday[trainingWeekday>1 & trainingWeekday <= 1.5] <- 2
+# trainingWeekday[trainingWeekday>17 & trainingWeekday <= 20] <- 3
+trainingWeekday[trainingWeekday>1.5] <- 4
+
+# trainingWeekday[trainingWeekday==0] <- 0
+# trainingWeekday[trainingWeekday>0 & trainingWeekday <= 1] <- 1
+# trainingWeekday[trainingWeekday>1 & trainingWeekday <= 14] <- 2
+# trainingWeekday[trainingWeekday>14 & trainingWeekday <= 27] <- 3
+# trainingWeekday[trainingWeekday>27 & trainingWeekday <= 30] <- 4
+# trainingWeekday[trainingWeekday>30] <- 5
+# Convert the categorical into factor variables
+for (i in 1) {
+ trainingWeekday[,i] <- as.factor(trainingWeekday[,i]) 
+}
+for (i in 1) {
+  names(trainingWeekday)[i] <- paste0(names(trainingWeekday)[i],'cat')
+}
+
+# The levels are not consistent across features: make them all 5
+for (i in 1) {
+  trainingWeekday[,i] <- factor(trainingWeekday[,i], levels = c("0","1","2","4"))
+}
+
+# Do the same thing as above to the validation dataset
+validWeekday <- as.data.frame(valid.NoNANoM[,60])
+
+
+
+validWeekday[validWeekday==0] <- 0
+validWeekday[validWeekday>0 & validWeekday <= 1] <- 1
+validWeekday[validWeekday>1 & validWeekday <= 1.5] <- 2
+# validWeekday[validWeekday>17 & validWeekday <= 20] <- 3
+validWeekday[validWeekday>1.5] <- 4
+
+# validWeekday[validWeekday==0] <- 0
+# validWeekday[validWeekday>0 & validWeekday <= 1] <- 1
+# validWeekday[validWeekday>1 & validWeekday <= 14] <- 2
+# validWeekday[validWeekday>14 & validWeekday <= 27] <- 3
+# validWeekday[validWeekday>27 & validWeekday <= 30] <- 4
+# validWeekday[validWeekday>30] <- 5
+
+for (i in 1) {
+ validWeekday[,i] <- as.factor(validWeekday[,i]) 
+}
+for (i in 1) {
+  names(validWeekday)[i] <- paste0(names(validWeekday)[i],'cat')
+}
+
+for (i in 1) {
+  validWeekday[,i] <- factor(validWeekday[,i], levels = c("0","1","2","4"))
+}
+
+```
+## Hourly Counts
+```{r}
+count48<-data.matrix(train.NoNANoM[, 'count.4_8'])
+quantile48<-quantile(count48, c(0.25, 0.5, 0.75)) # 0 0 5
+count48[count48==0]<-0
+count48[count48>0 & count48<5]<-1
+count48[count48>=5]<-2
+
+count812<-data.matrix(train.NoNANoM[, 'count.8_12'])
+quantile812<-quantile(count812, c(0.25, 0.5, 0.75)) # 0   2  10 
+count812[count812>=0 & count812<2]<-0
+count812[count812>=2 & count812<10]<-1
+count812[count812>=10]<-2
+
+count1216<-data.matrix(train.NoNANoM[, 'count.12_16'])
+quantile1216<-quantile(count1216, c(0.25, 0.5, 0.75)) # 0   2  9
+count1216[count1216>=0 & count1216<2]<-0
+count1216[count1216>=2 & count1216<9]<-1
+count1216[count1216>=9]<-2
+
+count1620<-data.matrix(train.NoNANoM[, 'count.16_20'])
+quantile1620<-quantile(count1620, c(0.25, 0.5, 0.75)) # 0   2  9
+count1620[count1620>=0 & count1620<2]<-0
+count1620[count1620>=2 & count1620<9]<-1
+count1620[count1620>=9]<-2
+
+count2024<-data.matrix(train.NoNANoM[, 'count.20_24'])
+quantile2024<-quantile(count2024, c(0.25, 0.5, 0.75)) # 0   2  10
+count2024[count2024>=0 & count2024<2]<-0
+count2024[count2024>=2 & count2024<10]<-1
+count2024[count2024>=10]<-2
+
+count48<-data.matrix(train.NoNANoM[, 'count.4_8'])
+quantile48<-quantile(count48, c(0.25, 0.5, 0.75)) # 0 0 5
+count48[count48==0]<-0
+count48[count48>0 & count48<5]<-1
+count48[count48>=5]<-2
+
+count812<-data.matrix(valid.NoNANoM[, 'count.8_12'])
+quantile812<-quantile(count812, c(0.25, 0.5, 0.75)) # 0   2  10 
+count812[count812>=0 & count812<2]<-0
+count812[count812>=2 & count812<10]<-1
+count812[count812>=10]<-2
+
+count1216<-data.matrix(valid.NoNANoM[, 'count.12_16'])
+quantile1216<-quantile(count1216, c(0.25, 0.5, 0.75)) # 0   2  9
+count1216[count1216>=0 & count1216<2]<-0
+count1216[count1216>=2 & count1216<9]<-1
+count1216[count1216>=9]<-2
+
+count1620<-data.matrix(valid.NoNANoM[, 'count.16_20'])
+quantile1620<-quantile(count1620, c(0.25, 0.5, 0.75)) # 0   2  9
+count1620[count1620>=0 & count1620<2]<-0
+count1620[count1620>=2 & count1620<9]<-1
+count1620[count1620>=9]<-2
+
+count2024<-data.matrix(valid.NoNANoM[, 'count.20_24'])
+quantile2024<-quantile(count2024, c(0.25, 0.5, 0.75)) # 0   2  10
+count2024[count2024>=0 & count2024<2]<-0
+count2024[count2024>=2 & count2024<10]<-1
+count2024[count2024>=10]<-2
+```
+
+```{r}
+trainCount48<-data.matrix(train.NoNANoM[, 'count.4_8'])
+trainCount812<-data.matrix(train.NoNANoM[, 'count.8_12'])
+trainCount1216<-data.matrix(train.NoNANoM[, 'count.12_16'])
+trainCount1620<-data.matrix(train.NoNANoM[, 'count.16_20'])
+trainCount2024<-data.matrix(train.NoNANoM[, 'count.20_24'])
+hourcount<-rbind(trainCount48, trainCount812, trainCount1216, trainCount1620, trainCount2024) # 0 1 2
+quantile<-quantile(hourcount, c(0.25, 0.5, 0.75))
+
+trainCount48[trainCount48==0]<-0
+trainCount48[trainCount48>0 & trainCount48<1]<-1
+trainCount48[trainCount48>=1 & trainCount48<2]<-2
+trainCount48[trainCount48>=2]<-3
+
+trainCount812[trainCount812==0]<-0
+trainCount812[trainCount812>0 & trainCount812<1]<-1
+trainCount812[trainCount812>=1 & trainCount812<2]<-2
+trainCount812[trainCount812>=2]<-3
+
+trainCount1216[trainCount1216==0 ]<-0
+trainCount1216[trainCount1216>0 & trainCount1216<1]<-1
+trainCount1216[trainCount1216>=1 & trainCount1216<2]<-2
+trainCount1216[trainCount1216>=2]<-3
+
+
+trainCount1620[trainCount1620==0]<-0
+trainCount1620[trainCount1620>0 & trainCount1620<1]<-1
+trainCount1620[trainCount1620>=1 & trainCount1620<2]<-2
+trainCount1620[trainCount1620>=2]<-3
+
+
+trainCount2024[trainCount2024==0]<-0
+trainCount2024[trainCount2024>0 & trainCount2024<1]<-1
+trainCount2024[trainCount2024>=1 & trainCount2024<2]<-2
+trainCount2024[trainCount2024>=2]<-3
+
+validCount48<-data.matrix(.NoNANoM[, 'count.4_8'])
+validCount812<-data.matrix(.NoNANoM[, 'count.8_12'])
+validCount1216<-data.matrix(.NoNANoM[, 'count.12_16'])
+validCount1620<-data.matrix(.NoNANoM[, 'count.16_20'])
+validCount2024<-data.matrix(.NoNANoM[, 'count.20_24'])
+hourcount<-rbind(validCount48, validCount812, validCount1216, validCount1620, validCount2024) # 0 1 2
+quantile<-quantile(hourcount, c(0.25, 0.5, 0.75))
+
+validCount48[validCount48==0]<-0
+validCount48[validCount48>0 & validCount48<1]<-1
+validCount48[validCount48>=1 & validCount48<2]<-2
+validCount48[validCount48>=2]<-3
+
+validCount812[validCount812==0]<-0
+validCount812[validCount812>0 & validCount812<1]<-1
+validCount812[validCount812>=1 & validCount812<2]<-2
+validCount812[validCount812>=2]<-3
+
+validCount1216[validCount1216==0 ]<-0
+validCount1216[validCount1216>0 & validCount1216<1]<-1
+validCount1216[validCount1216>=1 & validCount1216<2]<-2
+validCount1216[validCount1216>=2]<-3
+
+
+validCount1620[validCount1620==0]<-0
+validCount1620[validCount1620>0 & validCount1620<1]<-1
+validCount1620[validCount1620>=1 & validCount1620<2]<-2
+validCount1620[validCount1620>=2]<-3
+
+
+validCount2024[validCount2024==0]<-0
+validCount2024[validCount2024>0 & validCount2024<1]<-1
+validCount2024[validCount2024>=1 & validCount2024<2]<-2
+validCount2024[validCount2024>=2]<-3
+```
+
+```{r}
+traincateg<-cbind(training, trainingIsactive, trainingWeekday, count1216,count1620,count2024,count48,count812)
+validcateg<-cbind(validation, validIsactive, validWeekday,count1216,count1620,count2024,count48,count812)
 traincateg$group <- as.factor(traincateg$group)
 validcateg$group <- as.factor(validcateg$group)
 
@@ -828,6 +1029,20 @@ performancecateg2 <-data.frame('features' = c('Is_Active & App Ct Categ','Is_Act
 kable(performancecateg2, caption = 'Performance of Is_active&App Ct Categorical Variables') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
+
+```{r results='asis'}
+performancecateg3 <-data.frame('features' = c('Is_Active & App Ct Categ','Is_Active & App Ct Categ','Is_Active & App Ct Categ','Is_Active & App Ct Categ'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(2.713002,2.422743,2.309568,2.315649), 'Misclass' = c(0.8396733,0.8334408,0.8280679,0.8166774))
+kable(performancecateg3, caption = 'Performance of Is_active & App Ct & Date Ct Categorical Variables') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+```
+
+```{r results='asis'}
+performancecateg4 <-data.frame('features' = c('Is_Active & App Ct Categ','Is_Active & App Ct Categ','Is_Active & App Ct Categ','Is_Active & App Ct Categ'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(2.713002,2.422743,2.309568,2.315649), 'Misclass' = c(0.8396733,0.8334408,0.8280679,0.8166774))
+kable(performancecateg4, caption = 'Performance of Is_active & App Ct & Date Ct &  Categorical Variables') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
+```
+
+
 
 ### Predict gender and age separately
 ```{r}
