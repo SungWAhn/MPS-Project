@@ -334,8 +334,9 @@ ggplot(data = labelcount, aes(x = reorder(category,-count), y=count, fill = coun
   labs(x = 'App Categories', y = 'Count', title = 'App Category Distribution')
 ```
 
-```{r fig.width=11, fig.height=7, fig.align='center', message=FALSE, warning=FALSE, eval=FALSE, echo=FALSE}
-locations <- train %>%
+```{r fig.width=10, fig.height=9, fig.align='center', message=FALSE, warning=FALSE, eval=FALSE, echo=FALSE}
+
+locations <- train.NoNANoM %>%
   select(longitude, latitude) %>%
   filter(longitude != 1 & longitude != 0 & latitude !=1 & latitude != 0)
 box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
@@ -343,7 +344,9 @@ box <- make_bbox(lon = locations$longitude, lat = locations$latitude, f = .1)
 map <- get_map(location = box, maptype = 'terrain', source = 'google')
 
 p <- ggmap(map)
-p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
+p<-p + geom_point(data = locations, mapping = aes(x = longitude, y = latitude), color = "red")
+require(processx)
+orca(p, 'map.png')
 ```
 
 ### Bivariate Exploratory Analysis
