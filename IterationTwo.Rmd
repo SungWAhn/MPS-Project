@@ -730,6 +730,189 @@ for (i in 1:22) {
 
 ```
 
+
+#### Day Count
+```{r}
+# Obtain the day count features we want to bin
+training <- as.data.frame(train.NoNANoM[,52:59])
+# Stack the day count features into one long vector
+counts <- stack(training)
+# Calculate the quantiles
+quantiles <- quantile(counts[,1], c(.25,.5,.75))
+quantiles
+
+# Construct the categorical features based on the quantiles
+training[training==0] <- 0
+training[training>0 & training <= 1] <- 1
+training[training>1 & training <= 5] <- 2
+training[training>5] <- 3
+
+# Convert the categorical into factor variables
+for (i in 1:8) {
+ training[,i] <- as.factor(training[,i]) 
+ names(training)[i] <- paste0(names(training)[i],'cat')
+}
+
+
+# Do the same thing as above to the validation dataset
+validation <- as.data.frame(valid.NoNANoM[,52:59])
+
+validation[validation==0] <- 0
+validation[validation>0 & validation <= 1] <- 1
+validation[validation>1 & validation <= 5] <- 2
+validation[validation>5] <- 3
+
+for (i in 1:8) {
+ validation[,i] <- as.factor(validation[,i]) 
+ names(validation)[i] <- paste0(names(validation)[i],'cat')
+ # The levels are not consistent across features: make them all 4
+ validation[,i] <- factor(validation[,i], levels = c("0","1","2","3"))
+}
+
+# fit the model with transformed categorical features
+train.daycat <- training
+valid.daycat <- validation
+train.daycat$group <- train.NoNANoM$group
+valid.daycat$group <- valid.NoNANoM$group
+train.daycat$group <- as.factor(train.daycat$group)
+valid.daycat$group <- as.factor(valid.daycat$group)
+
+fit.daycat <- naiveBayes(group~., data=train.daycat)
+pred.daycat<-predict(fit.daycat, valid.daycat)
+summary(pred.daycat)
+mean(pred.daycat!=valid.daycat$group)    # 0.8609499
+probs <-predict(fit.daycat, valid.daycat, type = 'raw')
+MultiLogLoss(y_pred = probs, y_true = valid.daycat$group)  # 2.469864
+
+
+# fit a model using original features, compare accuracy
+training <- as.data.frame(train.NoNANoM[,52:59])
+training <- cbind(training, train.NoNANoM[,2])
+names(training)[9] <- 'group'
+validation <- as.data.frame(valid.NoNANoM[,52:59])
+validation <- cbind(validation, valid.NoNANoM[,2])
+names(validation)[9] <- 'group'
+training$group <- as.factor(training$group)
+validation$group <- as.factor(validation$group)
+
+fit <- naiveBayes(group~., data=training)
+pred <- predict(fit, validation)
+summary(pred)
+mean(pred!=validation$group)    # 0.9245648
+probs <-predict(fit, validation, type = 'raw')
+MultiLogLoss(y_pred = probs, y_true = validation$group)    # 4.4001683
+```
+
+
+```{r}
+# try using different quantiles for different day cound feature
+training <- as.data.frame(train.NoNANoM[,52:59])
+training <- cbind(training, train.NoNANoM[,2])
+names(training)[9] <- 'group'
+validation <- as.data.frame(valid.NoNANoM[,52:59])
+validation <- cbind(validation, valid.NoNANoM[,2])
+names(validation)[9] <- 'group'
+
+train.daycat2<- training
+Apr30 <- training[,1]
+quantile(Apr30, names=F)
+Apr30[Apr30<=0] <- 0
+Apr30[Apr30>0 & Apr30 <= 8] <- 1
+train.daycat2[,1] <- Apr30
+
+for (i in 2:8){
+  temp <- training[,i]
+  quantiles <- quantile(temp, names=F)
+  q1 <- quantiles[2]
+  q2 <- quantiles[3]
+  q3 <- quantiles[4]
+  temp[temp<=q1] <- 0
+  temp[temp>q1 & temp <= q2] <- 1
+  temp[temp>q2 & temp <= q3] <- 2
+  temp[temp>q3] <- 3
+  train.daycat2[,i] <- temp
+}
+
+for (i in 1:8) {
+ train.daycat2[,i] <- as.factor(train.daycat2[,i]) 
+ names(train.daycat2)[i] <- paste0(names(training)[i],'cat')
+ # The levels are not consistent across features: make them all 4
+ train.daycat2[,i] <- factor(train.daycat2[,i], levels = c("0","1","2","3"))
+}
+
+
+# transform validation dataset
+validation <- as.data.frame(valid.NoNANoM[,52:59])
+validation <- cbind(validation, valid.NoNANoM[,2])
+names(validation)[9] <- 'group'
+
+valid.daycat2<- validation
+Apr30 <- validation[,1]
+quantile(Apr30, names=F)
+Apr30[Apr30<=0] <- 0
+Apr30[Apr30>0 & Apr30 <= 8] <- 1
+valid.daycat2[,1] <- Apr30
+
+for (i in 2:8){
+  temp <- validation[,i]
+  quantiles <- quantile(temp, names=F)
+  q1 <- quantiles[2]
+  q2 <- quantiles[3]
+  q3 <- quantiles[4]
+  temp[temp<=q1] <- 0
+  temp[temp>q1 & temp <= q2] <- 1
+  temp[temp>q2 & temp <= q3] <- 2
+  temp[temp>q3] <- 3
+  valid.daycat2[,i] <- temp
+}
+
+for (i in 1:8) {
+ valid.daycat2[,i] <- as.factor(valid.daycat2[,i]) 
+ names(valid.daycat2)[i] <- paste0(names(validation)[i],'cat')
+ # The levels are not consistent across features: make them all 4
+ valid.daycat2[,i] <- factor(valid.daycat2[,i], levels = c("0","1","2","3"))
+}
+
+
+
+# fit the model with transformed categorical features
+train.daycat2$group <- as.factor(train.daycat2$group)
+valid.daycat2$group <- as.factor(valid.daycat2$group)
+
+fit.daycat2 <- naiveBayes(group~., data=train.daycat2)
+pred.daycat2 <- predict(fit.daycat2, valid.daycat2)
+summary(pred.daycat2)
+#   F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#      0      0      0      3    244      0   1659    511      0      2    763   1471 
+mean(pred.daycat2!=valid.daycat2$group)    # 0.8613798
+probs <-predict(fit.daycat2, valid.daycat2, type = 'raw')
+MultiLogLoss(y_pred = probs, y_true = valid.daycat2$group)  # 2.469194
+```
+
+```{r}
+# summary
+# use original day counts
+#   F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#   3994      0      0     65     64     77     35     92     14     42     73    197 
+# misclassification rate: 0.9245648
+# logloss: 4.400168
+
+
+# transformed features with same quantiles
+#   F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#      3      1      0      2    246      0   1663    492      0      3    697   1546 
+# misclassification rate: 0.8609499
+# logloss: 2.469864
+
+
+# transformed features with different quantiles
+#   F23- F24-26 F27-28 F29-32 F33-42   F43+   M22- M23-26 M27-28 M29-31 M32-38   M39+ 
+#      0      0      0      3    244      0   1659    511      0      2    763   1471 
+# misclassification rate: 0.8613798
+# logloss: 2.469194
+```
+
+
 ```{r}
 traincateg<-cbind(training, trainingIsactive)
 validcateg<-cbind(validation, validIsactive)
