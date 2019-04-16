@@ -65,22 +65,9 @@ names(valid.NoNANoM)[46] <- "socialnetworking.isactiveRat"
 
 
 
-```{r}
-traincont <- as.data.frame(train.NoNANoM[,-c(1,66,67)])
-#axis_x=traincont[,i]
-#axis_y=traincont[,i+1]
-par(mfrow=c(25,3), mar=c(.5,4,.5,.5))
-for (i in 2:63) {
-  axis_x=traincont[,i]
-  axis_y=traincont[,i+1]
-  p<-ggplot(data = traincont) +
-  geom_point(aes(x=axis_x, y = axis_y, color=group)) +
-  xlim(c(0,800))
-  print(p)
-}
-```
 
-```{r}
+
+```{r echo=FALSE, eval=FALSE}
 traincateg <- traincateg[,-c(48:52)]
 
 for (i in 2:63) {
@@ -169,10 +156,27 @@ for (i in 1:length(predlogprobsdat$validtotal.group)) {
 
 ### Performance
 ```{r results='asis'}
-performancecateg <-data.frame('features' = c('Count features','Count features','Count features','Count features'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(21.09997,2.264044,2.307519,2.374288), 'Misclass' = c(0.9176875,0.7960456,0.8214055,0.8132388))
+performancebase <-data.frame('features' = c('Count features','Count features','Count features','Count features'), 'Model' = c('NB','RF','SVM','Logistic'), 'Logloss' = c(21.09997,2.264044,2.307519,2.374288), 'Misclass' = c(0.9176875,0.7960456,0.8214055,0.8132388))
 kable(performancecateg, caption = 'Performance of Count Variables') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
+
+
+```{r}
+traincont <- as.data.frame(train.NoNANoM[,-c(1,66,67)])
+#axis_x=traincont[,i]
+#axis_y=traincont[,i+1]
+par(mfrow=c(25,3), mar=c(.5,4,.5,.5))
+for (i in 2:63) {
+  axis_x=traincont[,i]
+  axis_y=traincont[,i+1]
+  p<-ggplot(data = traincont) +
+  geom_point(aes(x=axis_x, y = axis_y, color=group)) +
+  xlim(c(0,800))
+  print(p)
+}
+```
+
 
 ### Try creating categorical features
 #### App Counts
