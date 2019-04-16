@@ -668,3 +668,55 @@ performancecateglog <-data.frame('features' = c('App Ct categorical features','P
 kable(performancecateg2, caption = 'Performance of Random Forest with Categorical Variables') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
+
+
+
+
+
+
+
+
+
+```{r} 
+# seperate into three groups
+# M32-38, M39+ and other
+training <- train.NoNANoM
+validation <- valid.NoNANoM
+train.group <- training$group
+train.group[train.group!='M32-38' & train.group!='M39+'] <- 'other'
+training$group <- train.group
+
+training <- as.data.frame(training)
+names <- names(training)
+
+for (i in 3:64) {
+  axis_x=training[,i]
+  axis_y=training[,i+1]
+  p<-ggplot(data = training) +
+    geom_point(aes(x=axis_x, y = axis_y, color=group)) +
+    xlim(range(axis_x)) + ylim(range(axis_y)) +
+    labs(x = names[i], y = names[i+1]) 
+  print(p)
+}
+```
+
+```{r}
+# plot F vs M groups
+training <- train.NoNANoM
+validation <- valid.NoNANoM
+group <- training$group
+gender <- substr(group, 1, 1)
+training$group <- gender
+training <- as.data.frame(training)
+
+names <- names(training)
+for (i in 3:64) {
+  axis_x=training[,i]
+  axis_y=training[,i+1]
+  p<-ggplot(data = training) +
+    geom_point(aes(x=axis_x, y = axis_y, color=group)) +
+    xlim(range(axis_x)) + ylim(range(axis_y)) +
+    labs(x = names[i], y = names[i+1]) 
+  print(p)
+}
+```
