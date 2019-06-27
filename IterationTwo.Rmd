@@ -37,6 +37,7 @@ library(plotly)
 library(MLmetrics)
 library(nnet)
 library(randomForest)
+library(caret)
 ```
 ```{r}
 versions<-sessionInfo()
@@ -61,10 +62,11 @@ names(train.NoNANoM)[24] <- "socialnetworking.appCt"
 names(train.NoNANoM)[46] <- "socialnetworking.isactiveRat"
 names(valid.NoNANoM)[24] <- "socialnetworking.appCt"
 names(valid.NoNANoM)[46] <- "socialnetworking.isactiveRat"
+```
 
+```{r}
 fwrite(train.NoNANoM, 'training_NoNA_NoMultc.csv', na="NA")
 fwrite(valid.NoNANoM, 'validation_NoNA_NoMultc.csv', na="NA")
-
 
 
 #match two datasets
@@ -171,9 +173,6 @@ performancecateg <-data.frame('features' = c('Count features','Count features','
 kable(performancecateg, caption = 'Performance of Count Variables') %>%
   kable_styling(bootstrap_options = c("striped", "bordered", "responsive", "condensed"), full_width = F)
 ```
-
-
-
 
 
 ## Naive Bayes: Start with small subset of features
@@ -405,27 +404,97 @@ for (i in 1:length(pred8probsdat$category_valid.group)) {
 ### Check the Independence Assumption
 ```{r fig.height=14, fig.width=14}
 train.final$group <- as.factor(train.final$group)
+
 corr <- cor(train.final[,-c(1,2,43,44)])
 corrplot(corr, order = "hclust", type = 'lower', tl.col = 'black', tl.srt = 45)
 
-corrM <- cor(train.NoNANoM[,-c(1,2,66,67)])
+corrM <- cor(traintotal[,-1])
 corrplot(corrM, type = 'lower', tl.col = 'black', tl.srt = 45)
 ```
 We can see from these two plots that there are some significant correlations between the features. The date features are all correlated with each other.
+```{r}
+for (i in 1:63) {
+  for (j in 1:63) {
+    if(abs(as.numeric(corrM[i,j])) < .5) {
+      corrM[i,j] = 0
+    }
+  }
+}
+candidates <- NULL
+for (i in 1:63) {
+ if(length(corrM[which(corrM[,i]!=0),i]) > 10) {
+   candidates[i]<-(names(corrM[,i])[i])
+ }
+}
+candidates<-candidates[which(is.na(candidates)==FALSE)]
+```
+
+```{r}
+highcorr<-findCorrelation(corrM,cutoff=.5,exact = T,names = T)
+highcorr
+```
+
+
+```{r}
+traincontuncorr <- select(traintotal, -c(highcorr[1:length(highcorr)]))
+validcontuncorr <- select(validtotal, -c(highcorr[1:length(highcorr)]))
+traincontuncorr$group<- as.factor(traincontuncorr$group)
+validcontuncorr$group<-as.factor(validcontuncorr$group)
+```
+```{r}
+fwrite(traincontuncorr, 'traintotaluncorr.csv')
+fwrite(validcontuncorr, 'validtotaluncorr.csv')
+```
+
+```{r}
+fitnb<-naiveBayes(group~., data=traintotaluncorr)
+prednb<-predict(fitnb, validtotaluncorr)
+summary(prednb)
+misclassnb<-mean(prednb!=validtotaluncorr$group)
+
+#log-loss
+prednbprobs <-predict(fitnb, validtotaluncorr, type = 'raw')
+
+loglossnb<-MultiLogLoss(y_pred = prednbprobs, y_true = validtotaluncorr$group)
+loglossnb
+misclassnb
+```
+```{r}
+kable(data.frame('Misclassification'=paste0((100*round(misclassnb,4)),'%'), 'logloss' = loglossnb), caption = 'Naive Bayes Performance: Without Correlated Predictors') %>%
+  kable_styling(bootstrap_options = c("striped", "bordered", "responsive"), full_width = F)
+```
+```{r fig.width=6, fig.height=5.5}
+confusion <- as.data.frame(table(prednb, validcontuncorr$group))
+p<-ggplot(confusion, aes(Var2, prednb)) +
+  geom_tile(aes(fill = Freq), colour='gray') +
+  scale_fill_gradient(low='antiquewhite', high = 'purple') +
+  theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 9),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 12)) +
+  labs(x= 'Observed', y= 'Predicted', title = 'Confusion Matrix', subtitle='Without Correlated Predictors')
+p
+```
+
+
+
 
 ### Check the Distributions: Are they really Normal?
-```{r fig.height=10, fig.width=12}
-ggplot(data = train.final, aes(x = count_event, fill = group)) +
+```{r warning=FALSE}
+# fig.height=10, fig.width=12,
+ggplot(data = train.final, aes(x = count_event)) +
   geom_histogram(binwidth = 10) +
-  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
+  #scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
   xlim(c(0,250)) +
-  ggtitle("Event Count")
+  ggtitle("Event Count")+
+  theme(plot.title = element_text(size=12))
 
-ggplot(data = train.final, aes(x = count.app, fill = group)) +
+ggplot(data = train.final, aes(x = count.app)) +
   geom_histogram(binwidth = 10) +
-  scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
+  #scale_fill_manual(values=c("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39")) +
   xlim(c(0,250)) +
-  ggtitle("App Count")
+  ggtitle("App Count")+
+  theme(plot.title = element_text(size=12))
 
 ggplot(data = train.final, aes(x = longitude)) +
   geom_histogram(binwidth = 10) +
@@ -453,13 +522,31 @@ ratioPCgraphs <- map(names(train.final[,16:28]), ~ggplot(data=train.final, aes_s
 marrangeGrob(ratioPCgraphs, ncol=2, nrow = 3)
 ```
 
-```{r fig.height=10, fig.width=12, warning=FALSE}
+```{r fig.height=10, fig.width=12, warning=FALSE, message=FALSE}
 names(train.NoNANoM)[c(24,46)] <- c("socialnetworking.appct", "socialnetworking.isactiveRat")
 graphs3 <- map(names(train.NoNANoM[,-c(1,2,3,4,66,67)]), ~ggplot(data=train.NoNANoM, aes_string(x=.x))+
   geom_histogram())
 
 marrangeGrob(graphs3, ncol=2, nrow = 3)
 ```
+
+```{r warning=FALSE, message=FALSE}
+# health, photography, event count, app count
+ggplot(data = train.NoNANoM, aes(x = photography.appCt)) +
+  geom_histogram(binwidth = 10) +
+  xlim(c(0,250)) +
+  ylim(c(0,2500))+
+  ggtitle("Photography App Usage Count")+
+  theme(plot.title = element_text(size=12))
+
+ggplot(data = train.NoNANoM, aes(x = health.appCt)) +
+  geom_histogram(binwidth = 10) +
+  xlim(c(0,250)) +
+  ylim(c(0,2500))+
+  ggtitle("Health App Usage Count")+
+  theme(plot.title = element_text(size=12))
+```
+
 
 - The principal components are actually Gaussian.
 - The event count, app count, and weekdays are all heavily skewed. Since these are count features, we should perhaps be using the multinomial distribution instead.
@@ -528,16 +615,31 @@ weseqs$y <- c(wedists[,1], wedists[,2], wedists[,3], wedists[,4], wedists[,5], w
 
 
 ggplot(caseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('App Count')
+  geom_point(position = 'jitter', size=1) +
+  ggtitle('Normal Distribution Generated with App Count')+
+  xlab('Counts')+
+  ylab('Probability Density')+
+  theme(plot.title = element_text(size=11),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size=8))
 
 ggplot(ecseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('Event Count')
+  geom_point(position = 'jitter', size=1) +
+  ggtitle('Normal Distribution Generated with Event Count')+
+  xlab('Counts')+
+  ylab('Probability Density')+
+  theme(plot.title = element_text(size=11),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size=8))
 
 ggplot(weseqs, aes(x=x,y=y, color=group)) +
-  geom_point(position = 'jitter') +
-  ggtitle('Weekday Count')
+  geom_point(position = 'jitter', size=1) +
+  ggtitle('Normal Distribution Generated with Weekday Count')+
+  xlab('Counts')+
+  ylab('Probability Density')+
+  theme(plot.title = element_text(size=11),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size=8))
 ```
 
 
@@ -895,11 +997,14 @@ trainCount2024[trainCount2024>0 & trainCount2024<1]<-1
 trainCount2024[trainCount2024>=1 & trainCount2024<2]<-2
 trainCount2024[trainCount2024>=2]<-3
 
-validCount48<-data.matrix(.NoNANoM[, 'count.4_8'])
-validCount812<-data.matrix(.NoNANoM[, 'count.8_12'])
-validCount1216<-data.matrix(.NoNANoM[, 'count.12_16'])
-validCount1620<-data.matrix(.NoNANoM[, 'count.16_20'])
-validCount2024<-data.matrix(.NoNANoM[, 'count.20_24'])
+traincount <- cbind(trainCount48,trainCount812,trainCount1216,trainCount1620,trainCount2024)
+
+
+validCount48<-data.matrix(valid.NoNANoM[, 'count.4_8'])
+validCount812<-data.matrix(valid.NoNANoM[, 'count.8_12'])
+validCount1216<-data.matrix(valid.NoNANoM[, 'count.12_16'])
+validCount1620<-data.matrix(valid.NoNANoM[, 'count.16_20'])
+validCount2024<-data.matrix(valid.NoNANoM[, 'count.20_24'])
 hourcount<-rbind(validCount48, validCount812, validCount1216, validCount1620, validCount2024) # 0 1 2
 quantile<-quantile(hourcount, c(0.25, 0.5, 0.75))
 
@@ -929,49 +1034,60 @@ validCount2024[validCount2024==0]<-0
 validCount2024[validCount2024>0 & validCount2024<1]<-1
 validCount2024[validCount2024>=1 & validCount2024<2]<-2
 validCount2024[validCount2024>=2]<-3
+validcount <- cbind(validCount48,validCount812,validCount1216,validCount1620,validCount2024)
+
+for (i in 1:5) {
+ validcount[,i] <- as.factor(validcount[,i]) 
+ names(validcount)[i] <- paste0(names(validcount)[i],'cat')
+ # The levels are not consistent across features: make them all 4
+ validationDay[,i] <- factor(validationDay[,i], levels = c("0","1","2","3"))
+}
+
 ```
 
 #### Day Count
 ```{r}
 # Obtain the day count features we want to bin
-training <- as.data.frame(train.NoNANoM[,52:59])
+trainingDay <- as.data.frame(train.NoNANoM[,52:59])
 # Stack the day count features into one long vector
-counts <- stack(training)
+counts <- stack(trainingDay)
 # Calculate the quantiles
 quantiles <- quantile(counts[,1], c(.25,.5,.75))
 quantiles
 
 # Construct the categorical features based on the quantiles
-training[training==0] <- 0
-training[training>0 & training <= 1] <- 1
-training[training>1 & training <= 5] <- 2
-training[training>5] <- 3
+trainingDay[trainingDay==0] <- 0
+trainingDay[trainingDay>0 & trainingDay <= 1] <- 1
+trainingDay[trainingDay>1 & trainingDay <= 5] <- 2
+trainingDay[trainingDay>5] <- 3
 
 # Convert the categorical into factor variables
 for (i in 1:8) {
- training[,i] <- as.factor(training[,i]) 
- names(training)[i] <- paste0(names(training)[i],'cat')
+ trainingDay[,i] <- as.factor(trainingDay[,i]) 
+ names(trainingDay)[i] <- paste0(names(trainingDay)[i],'cat')
 }
 
 
 # Do the same thing as above to the validation dataset
-validation <- as.data.frame(valid.NoNANoM[,52:59])
+validationDay <- as.data.frame(valid.NoNANoM[,52:59])
 
-validation[validation==0] <- 0
-validation[validation>0 & validation <= 1] <- 1
-validation[validation>1 & validation <= 5] <- 2
-validation[validation>5] <- 3
+validationDay[validationDay==0] <- 0
+validationDay[validationDay>0 & validationDay <= 1] <- 1
+validationDay[validationDay>1 & validationDay <= 5] <- 2
+validationDay[validationDay>5] <- 3
 
 for (i in 1:8) {
- validation[,i] <- as.factor(validation[,i]) 
- names(validation)[i] <- paste0(names(validation)[i],'cat')
+ validationDay[,i] <- as.factor(validationDay[,i]) 
+ names(validationDay)[i] <- paste0(names(validationDay)[i],'cat')
  # The levels are not consistent across features: make them all 4
- validation[,i] <- factor(validation[,i], levels = c("0","1","2","3"))
+ validationDay[,i] <- factor(validationDay[,i], levels = c("0","1","2","3"))
 }
 
 # fit the model with transformed categorical features
-train.daycat <- training
-valid.daycat <- validation
+train.daycat <- trainingDay
+valid.daycat <- validationDay
+```
+```{r}
 train.daycat$group <- train.NoNANoM$group
 valid.daycat$group <- valid.NoNANoM$group
 train.daycat$group <- as.factor(train.daycat$group)
@@ -1112,91 +1228,141 @@ MultiLogLoss(y_pred = probs, y_true = valid.daycat2$group)  # 2.469194
 # logloss: 2.469194
 ```
 
-
+### Fit model with categorical predictors
 ```{r}
-traincateg<-cbind(training, trainingIsactive, trainingWeekday, count1216,count1620,count2024,count48,count812)
-validcateg<-cbind(validation, validIsactive, validWeekday,count1216,count1620,count2024,count48,count812)
-traincateg$group <- as.factor(traincateg$group)
-validcateg$group <- as.factor(validcateg$group)
+training$group <- as.factor(training$group)
+validation$group <- as.factor(validation$group)
+traincateg<-cbind(training, trainingIsactive, trainingWeekday, traincount, train.daycat)
+validcateg<-cbind(validation, validIsactive, validWeekday, validcount, valid.daycat)
 
-fit.nb1<-naiveBayes(group~., data=traincateg)
-pred.nb1<-predict(fit.nb1, validcateg)
-summary(pred.nb1)
-mean(pred.nb1!=validcateg$group)   # 0.8540726
+traincateg<-list(training, trainingIsactive, trainingWeekday, traincount, train.daycat)
+validcateg<-list(validation, validIsactive, validWeekday, validcount, valid.daycat)
+```
+```{r}
+fit.nb = list()
+pred.nb = list()
+pred.nbprobs = list()
+logloss = vector(length=5)
+misclass<-vector(length=5)
 
-#log-loss
-pred.nb1probs <-predict(fit.nb1, validcateg, type = 'raw')
-pred.nb1probsdat <- data.frame(validcateg$group, pred.nb1probs)
-logloss <- vector(length = length(pred.nb1probsdat$validcateg.group))
-for (i in 1:length(pred.nb1probsdat$validcateg.group)) {
-  clas=grep(str_split(paste(pred.nb1probsdat$validcateg.group[i]), '-')[[1]][1], names(pred.nb1probsdat))
-  logloss[i] = log(pred.nb1probsdat[i,clas])
+# traincumulative = matrix(nrow = dim(train.NoNANoM)[1])
+# validcumulative = matrix(nrow = dim(valid.NoNANoM)[1])
+traincumulative = training[,FALSE]
+validcumulative = validation[,FALSE]
+
+for (i in 1:5) {
+  traincumulative <- cbind(traincumulative, traincateg[[i]])
+  validcumulative <- cbind(validcumulative, validcateg[[i]])
+  fit.nb[[i]]<-naiveBayes(group~., data=traincumulative)
+  pred.nb[[i]]<-predict(fit.nb[[i]], validcumulative)
+  print(summary(pred.nb[[i]]))
+  misclass[i]=mean(pred.nb[[i]]!=validcumulative$group)
+  
+  #log-loss
+  pred.nbprobs[[i]] <-predict(fit.nb[[i]], validcumulative, type = 'raw')
+  logloss[i]=MultiLogLoss(y_pred = pred.nbprobs[[i]], y_true = validcumulative$group) 
+  
 }
--mean(logloss)
 ```
 
 ### RF
 ```{r}
 set.seed(1223)
-fit.rf <- randomForest(as.factor(group)~., data = traincateg, na.action = na.omit)
+fit.rf = list()
+pred.rf = list()
+pred.rfprobs = list()
+logloss = vector(length=5)
+misclass<-vector(length=5)
+traincumulative = training[,FALSE]
+validcumulative = validation[,FALSE]
 
-rf.pred <- predict(fit.rf, newdata=validcateg)
+for (i in 1:5) {
+  traincumulative <- cbind(traincumulative, traincateg[[i]])
+  validcumulative <- cbind(validcumulative, validcateg[[i]])
+  fit.rf[[i]] <- randomForest(as.factor(group)~., data = traincumulative, na.action = na.omit)
+  pred.rf[[i]] <- predict(fit.rf[[i]], newdata=validcumulative)
+  print(summary(pred.rf[[i]]))
+  misclass[i]=mean(pred.rf[[i]]!=validcumulative$group)
+  
+  #log-loss
+  pred.rfprobs[[i]] <-predict(fit.rf[[i]], validcumulative, type = 'prob')
+  logloss[i]=MultiLogLoss(y_pred = pred.rfprobs[[i]], y_true = validcumulative$group) 
+  
+}
+
+
+
+
 table(rf.pred, validcateg$group)
 mean(rf.pred[is.na(rf.pred)==FALSE]!=validcateg$group[is.na(rf.pred)==FALSE])
 
-predrfprobs <-predict(fit.rf, validcateg, type = 'prob')
-predrfprobsdat <- data.frame(validcateg$group, predrfprobs)
-logloss <- vector(length = length(predrfprobsdat$validcateg.group))
-for (i in 1:length(predrfprobsdat$validcateg.group)) {
-  clas=grep(str_split(paste(predrfprobsdat$validcateg.group[i]), '-')[[1]][1], names(predrfprobsdat))
-  logloss[i] = log(predrfprobsdat[i,clas])
-}
--mean(logloss[is.infinite(logloss)==FALSE])
+
+
 
 ginis<-importance(fit.rf)
 ginis<-data.frame('gini'=ginis[,1], 'categ' = rownames(ginis))
 arrange(ginis, desc(gini))
 ```
 
-###SVM
+### SVM
 ```{r}
-fit.svm <- svm(as.factor(group) ~ . , traincateg, probability=TRUE)
-pred_svm <- predict(fit.svm, validcateg)
+fit.svm = list()
+pred.svm = list()
+pred.svmprobs = list()
+logloss = vector(length=5)
+misclass<-vector(length=5)
+traincumulative = training[,FALSE]
+validcumulative = validation[,FALSE]
+
+for (i in 1:5) {
+  traincumulative <- cbind(traincumulative, traincateg[[i]])
+  validcumulative <- cbind(validcumulative, validcateg[[i]])
+  fit.svm[[i]] <- svm(as.factor(group) ~ . , traincumulative, probability=TRUE)
+  pred.svm[[i]] <- predict(fit.svm[[i]], newdata=validcumulative)
+  print(summary(pred.svm[[i]]))
+  misclass[i]=mean(pred.svm[[i]]!=validcumulative$group)
+  
+  #log-loss
+  pred.svmprobs[[i]] <-predict(fit.svm[[i]], validcumulative, probability = T)
+  pred.svmprobs[[i]] <- attr(pred.svmprobs[[i]], 'probabilities')
+  logloss[i]=MultiLogLoss(y_pred = pred.svmprobs[[i]], y_true = validcumulative$group) 
+  
+}
+
+```
+```{r eval=FALSE}
 mean(as.character(pred_svm) != as.character(validcateg$group))
 table(pred_svm, validcateg$group)
-
-predsvmprobs <-predict(fit.svm, validcateg, probability = T)
-predsvmprobs <- attr(predsvmprobs, 'probabilities')
-predsvmprobsdat <- data.frame(validcateg$group, predsvmprobs)
-logloss <- vector(length = length(predsvmprobsdat$validcateg.group))
-for (i in 1:length(predsvmprobsdat$validcateg.group)) {
-  clas=grep(str_split(paste(predsvmprobsdat$validcateg.group[i]), '-')[[1]][1], names(predsvmprobsdat))
-  logloss[i] = log(predsvmprobsdat[i,clas])
-}
--mean(logloss)
 ```
 
 ### Logistic
 ```{r}
-train_log<- traincateg
-train_log<-na.omit(train_log)
-valid_log<-validcateg
-valid_log<-na.omit(valid_log)
+fit.log = list()
+pred.log = list()
+pred.logprobs = list()
+logloss = vector(length=5)
+misclass<-vector(length=5)
+traincumulative = training[,FALSE]
+validcumulative = validation[,FALSE]
 
-model_log <- multinom(group ~ ., data = traincateg, MaxNWts = 100000, model = TRUE, probability = TRUE)
-pred_log<-predict(model_log,valid_log)
-pred_log_score<-predict (model_log,valid_log, 'probs')
+for (i in 1:5) {
+  traincumulative <- na.omit(cbind(traincumulative, traincateg[[i]]))
+  validcumulative <- na.omit(cbind(validcumulative, validcateg[[i]]))
+  fit.log[[i]] <-  multinom(group ~ ., data = traincumulative, MaxNWts = 100000, model = TRUE, probability = TRUE)
+  pred.log[[i]] <- predict(fit.log[[i]], newdata=validcumulative)
+  print(summary(pred.log[[i]]))
+  misclass[i]=mean(pred.log[[i]]!=validcumulative$group)
+  
+  #log-loss
+  pred.logprobs[[i]] <-predict(fit.log[[i]], validcumulative, 'probs')
+  logloss[i]=MultiLogLoss(y_pred = pred.logprobs[[i]], y_true = validcumulative$group) 
+  
+}
+
+```
+```{r eval=FALSE}
 mean(as.character(pred_log) != as.character(valid_log$group))
 table(pred_log, valid_log$group)
-# coef(model_log)
-
-predlogprobsdat <- data.frame(validcateg$group, pred_log_score)
-logloss <- vector(length = length(predlogprobsdat$validcateg.group))
-for (i in 1:length(predlogprobsdat$validcateg.group)) {
-  clas=grep(str_split(paste(predlogprobsdat$validcateg.group[i]), '-')[[1]][1], names(predlogprobsdat))
-  logloss[i] = log(predlogprobsdat[i,clas])
-}
--mean(logloss)
 ```
 
 ### Performance
