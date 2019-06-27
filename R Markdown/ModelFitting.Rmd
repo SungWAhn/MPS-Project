@@ -1,0 +1,180 @@
+---
+title: "MPS Project -- Model Building"
+author: "Sung-Woo Ahn Wanwen Gu Yvonne Liu Xinyue Chen"
+date: "March27, 2019"
+output: 
+  html_document:
+    highlight: pygments
+    theme: cosmo
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+
+</style>
+
+
+## Import dataset
+```{r warning=FALSE, message=FALSE, error=FALSE}
+library(knitr)
+library(readr)
+library(data.table)
+library(bit64)
+library(Rmpfr)
+library(tidyverse)
+library(kableExtra)
+library(readxl)
+library(chron)
+library(VIM)
+library(DT)
+library(e1071)
+library(mlbench)
+```
+```{r}
+versions<-sessionInfo()
+versions
+```
+```{r echo=FALSE}
+options(kableExtra.latex.load_packages = FALSE)
+knit_hooks$set(document = function(x) {
+  sub('\\usepackage[]{color}', '\\usepackage[]{xcolor}', x, fixed = TRUE)
+})
+
+```
+
+```{r}
+train.final<-fread('training_final.csv', header=T, integer64='character')
+valid.final<-fread('validation_final.csv',header=T, integer64='character')
+valid.final<-as.data.frame(valid.final)
+train.final<-as.data.frame(train.final)
+```
+
+```{r}
+datatable(head(train.final, n=9000), options = list(pageLength=15))
+```
+
+
+```{r}
+#fit NB model
+valid.final$group <- as.factor(valid.final$group)
+fit1 <- naiveBayes(as.factor(group)~., data=train.final[,-c(1,19,20)])
+pred <- predict(fit1, newdata=valid.final[,-c(1,19,20)], type='class')
+pred_probs <- predict(fit1, newdata=valid.final[,-c(1,19,20)], type='raw')
+summary(pred)
+table(pred, valid.final$group)
+mean(pred!=valid.final$group)
+
+# Without location
+fit2 <- naiveBayes(as.factor(group)~., data=train.final[,-c(1,19,20,43,44)])
+pred2 <- predict(fit2, newdata=valid.final[,-c(1,19,20,43,44)], type='class')
+pred2_probs <- predict(fit2, newdata=valid.final[,-c(1,19,20,43,44)], type='raw')
+summary(pred2)
+table(pred2, valid.final$group)
+mean(pred2!=valid.final$group)
+
+# Without count.PC
+fit3 <- naiveBayes(as.factor(group)~., data=train.final[,-c(1,19,20,21:28)])
+pred3 <- predict(fit3, newdata=valid.final[,-c(1,19,20,21:28)], type='class')
+pred3_probs <- predict(fit3, newdata=valid.final[,-c(1,19,20,21:28)], type='raw')
+summary(pred3)
+table(pred3, valid.final$group)
+mean(pred3!=valid.final$group)
+
+# Without ratio.PC
+fit4 <- naiveBayes(as.factor(group)~., data=train.final[,-c(1,19,20,30:38)])
+pred4 <- predict(fit4, newdata=valid.final[,-c(1,19,20,30:38)], type='class')
+pred4_probs <- predict(fit4, newdata=valid.final[,-c(1,19,20,30:38)], type='raw')
+summary(pred4)
+table(pred4, valid.final$group)
+mean(pred4!=valid.final$group)
+
+# Without Date counts
+fit5 <- naiveBayes(as.factor(group)~., data=train.final[,-c(1,19,20,4:11)])
+pred5 <- predict(fit5, newdata=valid.final[,-c(1,19,20,4:11)], type='class')
+pred5_probs <- predict(fit5, newdata=valid.final[,-c(1,19,20,4:11)], type='raw')
+summary(pred5)
+table(pred5, valid.final$group)
+mean(pred5!=valid.final$group)
+```
+
+
+```{r echo=FALSE, eval=FALSE}
+#log-loss
+obs<-valid.final$group
+mis<-valid.final[which(pred=='F23-' & pred != obs),]
+
+n=dim(pred_probs)[1]
+ngroup=length(fit1$levels)
+log=0
+for (i in 1:n){
+  for (j in 1:ngroup){
+    log=log+log(pred_probs[i,j])
+  }
+}
+logloss=-log/n
+```
+Naive Bayes Formula
+
+$$P(F23-|features)=\frac{P(feature1|F23-)*P(feature2|F23-)*\cdots *P(feature43|F23-)*P(F23-)}{P(features)}$$
+All the naive bayes models misclassify many people as F23- of F27-28. Looking at Naive Bayes formula this could be due to some of the likelihoods for $P(F23-|features)$ being very high.
+
+Many of our features are continuous rather than categorical, so the naive bayes model uses Gaussian distributions constructed from the mean and standard deviation of the features to calculate the likelihoods.
+
+Example table with mean and sd
+```{r}
+fit1$tables$count.app
+```
+
+```{r fig.height=30, fig.width=8}
+par(mfrow=c(20,2), mar=c(.5,4,.5,.5))
+for (i in 1:40) {
+  plot(fit1$tables[[i]][,1], type='b', ylab = paste(names(train.final[i])))
+}
+fit1$levels
+
+
+f23meansd <- matrix(rep(0,42*3),ncol=3)
+names = names(train.final)
+names = names[-18]
+for (i in 2:40){
+  temp = fit1$tables[[i]][1,]
+  f23meansd[i-1,1] = names[i]
+  f23meansd[i-1,2] = temp[1]
+  f23meansd[i-1,3] = temp[2]
+}
+colnames(f23meansd)<- c('feature','mean', 'sd')
+```
+
+```{r warning=FALSE}
+obs<-valid.final$group
+mis<-valid.final[which(pred==fit1$levels[1] & pred != obs),]
+rowsmis <- dim(mis)[1]
+f23<-valid.final[which(valid.final$group=='F23-'),]
+mis<-cbind(mis, rep('Misclassified', rowsmis))
+colnames(mis)[45]<-'classifier'
+f23<-cbind(f23, rep('F23-', dim(f23)[1]))
+colnames(f23)[45]<-'classifier'
+combined<-rbind(mis, f23)
+
+
+graphs <- map(names(train.final[,-c(1,18,19,20)]), ~ggplot(data=combined, aes_string(x=.x, fill='classifier', color='classifier'))+
+  geom_histogram(stat= 'count', alpha=0.5, position='identity'))
+
+graphs
+```
+
+## Random Forest
+
+```{r}
+library(randomForest)
+set.seed(1223)
+fit.rf <- randomForest(as.factor(group)~., data = train.final[,-c(1,19,20)])
+
+rf.pred <- predict(fit.rf, newdata=valid.final[,-c(1,18,19,20)])
+table(rf.pred, valid.final$group)
+mean(rf.pred!=valid.final$group)
+importance(fit.rf)
+```
